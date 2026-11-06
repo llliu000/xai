@@ -246,6 +246,7 @@ import {
   ChannelEditorLoadingState,
   ChannelModelsSection,
 } from './sections'
+import { ChannelAssetSettings } from './sections/channel-asset-settings'
 
 type ChannelMutateDrawerProps = {
   open: boolean
@@ -289,6 +290,8 @@ const SENSITIVE_FORM_FIELDS = [
   'header_override',
   'settings',
   'setting',
+  'category',
+  'category_setting',
   'advanced_custom',
   'is_enterprise_account',
   'vertex_key_type',
@@ -4740,6 +4743,10 @@ export function ChannelMutateDrawer({
           <>
             {basicSection}
             {connectionSection}
+            <ChannelAssetSettings
+              disabled={sensitiveLocked}
+              categories={boundTaskPlugin?.assetCategories ?? []}
+            />
           </>
         }
         models={modelsSection}

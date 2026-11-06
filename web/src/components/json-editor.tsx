@@ -32,6 +32,7 @@ type JsonEditorProps = {
   valuePlaceholder?: string
   keyLabel?: string
   valueLabel?: string
+  showHeader?: boolean
   emptyMessage?: string
   template?: Record<string, unknown>
   valueType?: 'string' | 'number' | 'any'
@@ -68,6 +69,7 @@ export function JsonEditor({
   valuePlaceholder,
   keyLabel,
   valueLabel,
+  showHeader = true,
   emptyMessage,
   template,
   valueType = 'string',
@@ -226,11 +228,13 @@ export function JsonEditor({
         <div className='space-y-2'>
           {rows.length > 0 ? (
             <div className='space-y-2'>
-              <div className='grid grid-cols-[1fr_1fr_auto] gap-2 text-sm font-medium'>
-                <div>{resolvedKeyLabel}</div>
-                <div>{resolvedValueLabel}</div>
-                <div className='w-10' />
-              </div>
+              {showHeader && (
+                <div className='grid grid-cols-[1fr_1fr_auto] gap-2 text-sm font-medium'>
+                  <div>{resolvedKeyLabel}</div>
+                  <div>{resolvedValueLabel}</div>
+                  <div className='w-10' />
+                </div>
+              )}
               {rows.map((row) => (
                 <div
                   key={row.id}

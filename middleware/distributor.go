@@ -97,6 +97,9 @@ func Distribute() func(c *gin.Context) {
 				}
 			}
 		}
+		service.SeedanceChannelBinding(c, modelRequest.Model)
+		_, pinned, _ = constraints.ResolvedPin()
+
 		if pinned || shouldSelectChannel {
 			usingGroup := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
 			var selectErr *service.ChannelSelectError

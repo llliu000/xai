@@ -32,6 +32,8 @@ import type {
   ManageUserAction,
   ManageUserQuotaPayload,
   ApiResponse,
+  SeedanceChannelOption,
+  UserSeedanceChannels,
 } from './types'
 
 // A step-up proof is single-use, so the request carrying it must never be
@@ -100,6 +102,21 @@ export async function searchUsers(
  */
 export async function getUser(id: number): Promise<ApiResponse<User>> {
   const res = await api.get(`/api/user/${id}`)
+  return res.data
+}
+
+export async function getSeedanceChannelOptions(): Promise<
+  ApiResponse<SeedanceChannelOption[]>
+> {
+  const res = await api.get('/api/channel/seedance-options')
+  return res.data
+}
+
+export async function updateUserSeedanceChannels(
+  userId: number,
+  channels: UserSeedanceChannels
+): Promise<ApiResponse<UserSeedanceChannels>> {
+  const res = await api.put(`/api/user/${userId}/seedance-channels`, channels)
   return res.data
 }
 

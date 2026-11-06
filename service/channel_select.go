@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -12,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/jsplugin"
+	kitdto "github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/gin-gonic/gin"
 )
@@ -26,6 +28,37 @@ func GetChannelConstraints(c *gin.Context) *dto.ChannelConstraints {
 	constraints := &dto.ChannelConstraints{}
 	common.SetContextKey(c, constant.ContextKeyChannelConstraints, constraints)
 	return constraints
+}
+
+func SeedanceChannelBinding(c *gin.Context, modelName string) {
+	modelName = strings.ToLower(modelName)
+	if !strings.Contains(modelName, "seedance") {
+		return
+	}
+	var channelId int
+	settings, _ := common.GetContextKeyType[kitdto.UserSetting](c, constant.ContextKeyUserSetting)
+	switch {
+	case strings.Contains(modelName, "doubao"):
+		channelId = settings.SeedanceInnerChannelID
+	case strings.Contains(modelName, "dreamina"):
+		channelId = settings.SeedanceOuterChannelID
+	}
+	if channelId <= 0 {
+		return
+	}
+	constraints := GetChannelConstraints(c)
+	constraints.AddPin(dto.ChannelPin{
+		RetryMode: dto.PinRetrySingleAttempt,
+		Source:    dto.PinSourceOriginTask,
+		Rank:      dto.PinRankOriginTask,
+		ChannelId: channelId,
+	})
+	constraints.AddFilter(dto.ChannelFilter{
+		TaskPluginChannelTypes: []int{constant.ChannelTypeTaskPlugin},
+		Kind:                   dto.FilterTaskPluginIdentity,
+		TaskPluginKey:          "doubao",
+	})
+	return
 }
 
 func AppendTaskPluginIdentityFilter(c *gin.Context, pluginKey string) {

@@ -426,6 +426,15 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	if err != nil {
 		return nil, err
 	}
+
+	// 已经调试过seedance插件body返回的是map，所有直接在这里进行处理，不做其他额外处理
+	if info.ChannelMeta.ChannelSetting.TaskPluginKey == "doubao" {
+		mm, _ := inlined.(map[string]any)
+		if err = service.ResolveAssetReferences(info, mm); err != nil {
+			return nil, err
+		}
+	}
+
 	body, err := common.Marshal(inlined)
 	if err != nil {
 		return nil, err

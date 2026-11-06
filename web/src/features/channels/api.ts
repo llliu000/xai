@@ -81,6 +81,11 @@ export async function getInferenceStatus(
   return requireServerSuccess(response.data).data
 }
 
+export type AssetCategoryOption = {
+  value: string
+  label: string
+}
+
 export type TaskPluginOption = {
   sortPriority?: number
   website?: string
@@ -93,6 +98,7 @@ export type TaskPluginOption = {
   models: string[]
   channelTypes?: number[] | null
   upstreams?: string[] | null
+  assetCategories?: AssetCategoryOption[]
 }
 
 export async function getTaskPluginOptions(): Promise<TaskPluginOption[]> {

@@ -376,6 +376,10 @@ func migrateDB() error {
 		&CasbinRule{},
 		&AuthzRole{},
 		&UserAccessToken{},
+		&Asset{},
+		&AssetChannel{},
+		&AssetGroup{},
+		&AssetGroupChannel{},
 	)
 	if err != nil {
 		return err

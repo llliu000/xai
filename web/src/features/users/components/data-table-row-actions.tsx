@@ -48,8 +48,10 @@ import {
 } from '@/components/ui/tooltip'
 import type { AdminUserManageAction } from '@/features/auth/secure-verification'
 import { UserSubscriptionsDialog } from '@/features/subscriptions/components/dialogs/user-subscriptions-dialog'
+import { hasPermission } from '@/lib/admin-permissions'
 import { handleServerError } from '@/lib/handle-server-error'
 import { AuthOperationError } from '@/lib/secure-verification'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { manageUser, resetUserPasskey, resetUserTwoFA } from '../api'
 import {
@@ -61,6 +63,7 @@ import {
 import { getUserActionMessage } from '../lib'
 import type { User } from '../types'
 import { UserBindingDialog } from './dialogs/user-binding-dialog'
+import { UserSeedanceChannelsDialog } from './dialogs/user-seedance-channels-dialog'
 import { useUsers } from './users-provider'
 
 const MANAGE_ACTION_TITLES: Record<AdminUserManageAction, string> = {
@@ -88,6 +91,13 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const [resetTwoFAOpen, setResetTwoFAOpen] = useState(false)
   const [bindingDialogOpen, setBindingDialogOpen] = useState(false)
   const [subscriptionsDialogOpen, setSubscriptionsDialogOpen] = useState(false)
+  const [seedanceChannelsDialogOpen, setSeedanceChannelsDialogOpen] =
+    useState(false)
+  const currentUser = useAuthStore((state) => state.auth.user)
+  const canBindSeedanceChannels =
+    hasPermission(currentUser, 'channel', 'read') &&
+    (currentUser?.role === USER_ROLE.ROOT ||
+      (currentUser?.role ?? 0) > user.role)
 
   const handleEdit = () => {
     setCurrentRow(user)
@@ -275,6 +285,19 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
           </DropdownMenuShortcut>
         </DropdownMenuItem>
 
+        <DropdownMenuItem
+          disabled={!canBindSeedanceChannels}
+          onSelect={(event) => {
+            event.preventDefault()
+            setSeedanceChannelsDialogOpen(true)
+          }}
+        >
+          {t('Doubao channel binding')}
+          <DropdownMenuShortcut>
+            <Link2 size={16} />
+          </DropdownMenuShortcut>
+        </DropdownMenuItem>
+
         <DropdownMenuSeparator />
 
         <DropdownMenuItem
@@ -354,6 +377,14 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         user={{ id: user.id, username: user.username }}
         onSuccess={triggerRefresh}
       />
+
+      {seedanceChannelsDialogOpen && (
+        <UserSeedanceChannelsDialog
+          user={user}
+          onOpenChange={setSeedanceChannelsDialogOpen}
+          onSuccess={triggerRefresh}
+        />
+      )}
     </div>
   )
 }

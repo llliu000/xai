@@ -7373,6 +7373,23 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Asset library": "Asset library",
+    "Asset library type": "Asset library type",
+    "Select asset library type": "Select asset library type",
+    "API Key mode uses this channel’s Base URL and API key": "API Key mode uses this channel’s Base URL and API key",
+    "Asset library settings": "Asset library settings",
+    "Asset library Secret Key": "Asset library Secret Key",
+    "Asset library type must be volc or volc_key": "Asset library type must be volc or volc_key",
+    "Asset library settings must be a JSON object with string values": "Asset library settings must be a JSON object with string values",
+    "Asset library setting {{field}} is required": "Asset library setting {{field}} is required",
+    "Field name": "Field name",
+    "Doubao channel binding": "Doubao channel binding",
+    "Bind Doubao video channels for {{username}}": "Bind Doubao video channels for {{username}}",
+    "Domestic channel": "Domestic channel",
+    "Overseas channel": "Overseas channel",
+    "No binding": "No binding",
+    "Deleted channel (ID: {{id}})": "Deleted channel (ID: {{id}})",
+    "Select No binding to clear a channel binding.": "Select No binding to clear a channel binding."
   }
 }

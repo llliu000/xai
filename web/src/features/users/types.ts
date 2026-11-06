@@ -59,11 +59,23 @@ export const userSchema = z.object({
   last_login_at: z.number().optional(),
   DeletedAt: z.any().nullable().optional(),
   remark: z.string().optional(),
+  setting: z.string().optional(),
   admin_permissions: z
     .record(z.string(), z.record(z.string(), z.boolean()))
     .optional(),
 })
 export type User = z.infer<typeof userSchema>
+
+export interface SeedanceChannelOption {
+  id: number
+  name: string
+  status: number
+}
+
+export interface UserSeedanceChannels {
+  seedance_inner_channel_id: number
+  seedance_outer_channel_id: number
+}
 
 export const userListSchema = z.array(userSchema)
 

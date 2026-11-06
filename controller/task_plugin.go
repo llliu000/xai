@@ -20,6 +20,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/jsplugin"
 	"github.com/QuantumNous/new-api/plugins"
+	"github.com/QuantumNous/new-api/relay/asset"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -809,7 +810,7 @@ func GetTaskPluginOptions(c *gin.Context) {
 			} else {
 				_, _, hasIcon = plugins.Icon(meta.Key)
 			}
-			options = append(options, gin.H{
+			option := gin.H{
 				"key":           meta.Key,
 				"name":          meta.Name,
 				"description":   meta.Description,
@@ -823,7 +824,11 @@ func GetTaskPluginOptions(c *gin.Context) {
 				"upstreams":     meta.Upstreams,
 				"usageSchema":   meta.UsageSchema,
 				"usageProfiles": meta.UsageProfiles,
-			})
+			}
+			if meta.Key == "doubao" {
+				option["assetCategories"] = asset.CategoryOptions()
+			}
+			options = append(options, option)
 		}
 	}
 	sort.Slice(options, func(i, j int) bool {

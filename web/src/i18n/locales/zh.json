@@ -7373,6 +7373,23 @@
     "Zhipu": "智谱",
     "Zhipu GLM": "智谱GLM",
     "Zhipu V4": "智谱 V4",
-    "Zoom": "缩放"
+    "Zoom": "缩放",
+    "Asset library": "素材库",
+    "Asset library type": "素材库类型",
+    "Select asset library type": "选择素材库类型",
+    "API Key mode uses this channel’s Base URL and API key": "API Key 模式使用当前渠道的 Base URL 和 API 密钥",
+    "Asset library settings": "素材库配置",
+    "Asset library Secret Key": "素材库 Secret Key",
+    "Asset library type must be volc or volc_key": "素材库类型必须为 volc 或 volc_key",
+    "Asset library settings must be a JSON object with string values": "素材库配置必须是值为字符串的 JSON 对象",
+    "Asset library setting {{field}} is required": "素材库配置 {{field}} 为必填项",
+    "Field name": "字段名",
+    "Doubao channel binding": "豆包渠道绑定",
+    "Bind Doubao video channels for {{username}}": "为 {{username}} 绑定豆包视频渠道",
+    "Domestic channel": "国内渠道",
+    "Overseas channel": "海外渠道",
+    "No binding": "不绑定",
+    "Deleted channel (ID: {{id}})": "渠道已删除（ID：{{id}}）",
+    "Select No binding to clear a channel binding.": "选择“不绑定”可以清空对应渠道的绑定。"
   }
 }

@@ -1,6 +1,8 @@
 package dto
 
 type UserSetting struct {
+	SeedanceInnerChannelID           int     `json:"seedance_inner_channel_id,omitempty"`            // 豆包国内视频渠道
+	SeedanceOuterChannelID           int     `json:"seedance_outer_channel_id,omitempty"`            // 豆包海外视频渠道
 	NotifyType                       string  `json:"notify_type,omitempty"`                          // QuotaWarningType 额度预警类型
 	QuotaWarningThreshold            float64 `json:"quota_warning_threshold,omitempty"`              // QuotaWarningThreshold 额度预警阈值
 	QuotaWarningEnabled              *bool   `json:"quota_warning_enabled,omitempty"`                // 是否接收余额不足提醒，未设置时接收

@@ -7373,6 +7373,23 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Asset library": "Thư viện tài nguyên",
+    "Asset library type": "Loại thư viện tài nguyên",
+    "Select asset library type": "Chọn loại thư viện tài nguyên",
+    "API Key mode uses this channel’s Base URL and API key": "Chế độ API Key sử dụng Base URL và khóa API của kênh này",
+    "Asset library settings": "Cài đặt thư viện tài nguyên",
+    "Asset library Secret Key": "Secret Key của thư viện tài nguyên",
+    "Asset library type must be volc or volc_key": "Loại thư viện phải là volc hoặc volc_key",
+    "Asset library settings must be a JSON object with string values": "Cài đặt thư viện phải là đối tượng JSON có giá trị chuỗi",
+    "Asset library setting {{field}} is required": "Cài đặt thư viện {{field}} là bắt buộc",
+    "Field name": "Tên trường",
+    "Doubao channel binding": "Liên kết kênh Doubao",
+    "Bind Doubao video channels for {{username}}": "Liên kết kênh video Doubao cho {{username}}",
+    "Domestic channel": "Kênh nội địa",
+    "Overseas channel": "Kênh quốc tế",
+    "No binding": "Không liên kết",
+    "Deleted channel (ID: {{id}})": "Kênh đã xóa (ID: {{id}})",
+    "Select No binding to clear a channel binding.": "Chọn « Không liên kết » để xóa liên kết kênh."
   }
 }

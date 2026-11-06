@@ -208,6 +208,11 @@ export const channelFormSchema = z
     type: z.number().min(0, ERROR_MESSAGES.REQUIRED_TYPE),
     base_url: z.string().optional(),
     task_plugin_key: z.string().optional(),
+    category: z.string().optional(),
+    category_setting: z
+      .string()
+      .optional()
+      .refine(isOptionalJsonObject, ERROR_MESSAGES.INVALID_JSON),
     task_extend_plugin_keys: z.array(z.string()).optional(),
     key: z.string(),
     openai_organization: z.string().optional(),
@@ -435,6 +440,8 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   type: 1,
   base_url: '',
   task_plugin_key: '',
+  category: '',
+  category_setting: '{}',
   task_extend_plugin_keys: [],
   key: '',
   openai_organization: '',
@@ -506,6 +513,8 @@ export function transformChannelToFormDefaults(
   // Parse channel extra settings from setting field
   let extraSettings = {
     task_plugin_key: '',
+    category: '',
+    category_setting: '{}',
     task_extend_plugin_keys: [] as string[],
     force_format: false,
     thinking_to_content: false,
@@ -528,6 +537,8 @@ export function transformChannelToFormDefaults(
       )
       extraSettings = {
         task_plugin_key: parsed.task_plugin_key || '',
+        category: parsed.category || '',
+        category_setting: parsed.category_setting || '{}',
         task_extend_plugin_keys: readTaskExtendPluginKeys(channel.type, parsed),
         force_format: parsed.force_format || false,
         thinking_to_content: parsed.thinking_to_content || false,
@@ -682,6 +693,16 @@ export function buildSettingJSON(formData: ChannelFormValues): string {
       formData.responses_websocket_enabled === true,
     system_prompt: formData.system_prompt || '',
     system_prompt_override: formData.system_prompt_override || false,
+  }
+
+  if (
+    formData.type === CHANNEL_TYPE_TASK_PLUGIN &&
+    formData.task_plugin_key === 'doubao'
+  ) {
+    settingObj.category = formData.category || ''
+    settingObj.category_setting = JSON.stringify(
+      JSON.parse(formData.category_setting?.trim() || '{}')
+    )
   }
 
   const protocol = normalizeHttpProtocol(formData.http_protocol)

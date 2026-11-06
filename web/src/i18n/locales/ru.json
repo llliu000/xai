@@ -7373,6 +7373,23 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Asset library": "Библиотека ресурсов",
+    "Asset library type": "Тип библиотеки ресурсов",
+    "Select asset library type": "Выберите тип библиотеки ресурсов",
+    "API Key mode uses this channel’s Base URL and API key": "Режим API Key использует Base URL и ключ API этого канала",
+    "Asset library settings": "Настройки библиотеки ресурсов",
+    "Asset library Secret Key": "Секретный ключ библиотеки ресурсов",
+    "Asset library type must be volc or volc_key": "Тип библиотеки должен быть volc или volc_key",
+    "Asset library settings must be a JSON object with string values": "Настройки библиотеки должны быть объектом JSON со строковыми значениями",
+    "Asset library setting {{field}} is required": "Параметр библиотеки {{field}} обязателен",
+    "Field name": "Имя поля",
+    "Doubao channel binding": "Привязка каналов Doubao",
+    "Bind Doubao video channels for {{username}}": "Привязать видеоканалы Doubao для {{username}}",
+    "Domestic channel": "Внутренний канал",
+    "Overseas channel": "Зарубежный канал",
+    "No binding": "Без привязки",
+    "Deleted channel (ID: {{id}})": "Канал удалён (ID: {{id}})",
+    "Select No binding to clear a channel binding.": "Выберите «Без привязки», чтобы удалить привязку канала."
   }
 }

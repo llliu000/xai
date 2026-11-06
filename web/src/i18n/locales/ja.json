@@ -7373,6 +7373,23 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V 4",
-    "Zoom": "ズーム"
+    "Zoom": "ズーム",
+    "Asset library": "素材ライブラリ",
+    "Asset library type": "素材ライブラリの種類",
+    "Select asset library type": "素材ライブラリの種類を選択",
+    "API Key mode uses this channel’s Base URL and API key": "API Key モードでは、このチャネルの Base URL と API キーを使用します",
+    "Asset library settings": "素材ライブラリの設定",
+    "Asset library Secret Key": "素材ライブラリの Secret Key",
+    "Asset library type must be volc or volc_key": "素材ライブラリの種類は volc または volc_key を指定してください",
+    "Asset library settings must be a JSON object with string values": "素材ライブラリの設定は値が文字列の JSON オブジェクトにしてください",
+    "Asset library setting {{field}} is required": "素材ライブラリの設定 {{field}} は必須です",
+    "Field name": "フィールド名",
+    "Doubao channel binding": "Doubao チャネルの紐付け",
+    "Bind Doubao video channels for {{username}}": "{{username}} に Doubao 動画チャネルを紐付けます",
+    "Domestic channel": "中国国内チャネル",
+    "Overseas channel": "海外チャネル",
+    "No binding": "紐付けなし",
+    "Deleted channel (ID: {{id}})": "削除済みチャネル（ID: {{id}}）",
+    "Select No binding to clear a channel binding.": "「紐付けなし」を選択すると、チャネルの紐付けを解除できます。"
   }
 }
