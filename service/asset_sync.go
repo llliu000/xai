@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 	"errors"
-	"net/http"
+	"fmt"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -23,15 +23,11 @@ const (
 	assetSyncPollInterval = 15 * time.Second
 )
 
-func assetSyncTargets() ([]*model.Channel, error) {
+func availableDoubaoAssetChannels() ([]*model.Channel, error) {
 	var channels []*model.Channel
-	err := model.DB.Where("type = ?", constant.ChannelTypeTaskPlugin).
-		Order("id ASC").Find(&channels).Error
-	if err != nil {
+	if err := model.DB.Where("type = ?", constant.ChannelTypeTaskPlugin).
+		Order("id ASC").Find(&channels).Error; err != nil {
 		return nil, err
-	}
-	if len(channels) == 0 {
-		return nil, errors.New("no channels found")
 	}
 	var targets []*model.Channel
 	for _, channel := range channels {
@@ -45,12 +41,11 @@ func assetSyncTargets() ([]*model.Channel, error) {
 	return targets, nil
 }
 
-// SyncAssetsToChannel queues existing assets that have no mapping to this channel.
-// Uploading and moderation polling remain the responsibility of the background worker.
+// SyncAssetsToChannel captures existing assets in one transaction. Later uploads
+// do not extend this backfill; existing mappings retain their original Manual flag.
 func SyncAssetsToChannel(ctx context.Context, channelID int) (int64, error) {
-	db := model.DB.WithContext(ctx)
 	var channel model.Channel
-	if err := db.First(&channel, channelID).Error; err != nil {
+	if err := model.DB.First(&channel, channelID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return 0, common.NewMessage("Channel does not exist")
 		}
@@ -60,102 +55,107 @@ func SyncAssetsToChannel(ctx context.Context, channelID int) (int64, error) {
 		return 0, common.NewMessage("Asset synchronization requires a DoubaoVideo channel")
 	}
 	var queued int64
-	for {
+	err := model.DB.Transaction(func(tx *gorm.DB) error {
 		var assets []model.Asset
-		existing := db.Model(&model.AssetChannel{}).Select("asset_id").Where("channel_id = ?", channelID)
-		if err := db.Model(&model.Asset{}).Select("id", "user_id").Where("id NOT IN (?)", existing).Order("id ASC").
-			Limit(100).Find(&assets).Error; err != nil {
-			return 0, err
+		existing := tx.Model(&model.AssetChannel{}).Select("asset_id").Where("channel_id = ?", channelID)
+		if err := tx.Select("id", "user_id").Where("id NOT IN (?)", existing).
+			Order("id ASC").Find(&assets).Error; err != nil {
+			return err
 		}
 		if len(assets) == 0 {
-			break
+			return nil
 		}
 		rows := make([]model.AssetChannel, 0, len(assets))
 		for _, asset := range assets {
-			rows = append(rows, model.AssetChannel{UserId: asset.UserId, AssetId: asset.Id, ChannelId: channelID, Status: model.AssetStatusPending})
+			rows = append(rows, model.AssetChannel{
+				UserId: asset.UserId, AssetId: asset.Id, ChannelId: channelID,
+				Manual: true, Status: model.AssetStatusPending,
+			})
 		}
-		result := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&rows)
-		if result.Error != nil {
-			return 0, result.Error
-		}
-		queued += result.RowsAffected
+		result := tx.Omit(clause.Associations).Clauses(clause.OnConflict{DoNothing: true}).
+			CreateInBatches(&rows, assetSyncBatchSize)
+		queued = result.RowsAffected
+		return result.Error
+	})
+	if err != nil {
+		return 0, err
 	}
 	if queued > 0 {
-		if _, _, err := EnqueueSystemTask(assetSyncTaskType, nil); err != nil {
-			return 0, err
-		}
+		_, _, err = EnqueueSystemTask(assetSyncTaskType, nil)
 	}
-	return queued, nil
-}
-
-type assetSyncTransport struct{ ctx context.Context }
-
-func (t assetSyncTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	return http.DefaultTransport.RoundTrip(req.Clone(t.ctx))
+	return queued, err
 }
 
 func init() { RegisterSystemTaskHandler(assetSyncHandler{}) }
 
 type assetSyncHandler struct{}
 
-func (assetSyncHandler) Type() string { return assetSyncTaskType }
-func (assetSyncHandler) Enabled() bool {
-	return true
-}
+func (assetSyncHandler) Type() string            { return assetSyncTaskType }
+func (assetSyncHandler) Enabled() bool           { return true }
 func (assetSyncHandler) Interval() time.Duration { return assetSyncPollInterval }
 func (assetSyncHandler) NewPayload() any         { return nil }
 
 func (assetSyncHandler) Run(ctx context.Context, task *model.SystemTask, runnerID string) {
-	chs, err := assetSyncTargets()
-	if err == nil {
-		err = errors.Join(err, runAssetStatusSyncBatch(chs)) // 同步上游状态
-		err = errors.Join(err, runAssetUploadBatch(chs))     // 同步到对应渠道
-		err = errors.Join(err, refreshAssetSyncStatus(chs))  // 同步本地资源状态
-	}
-	taskStatus := model.SystemTaskStatusSucceeded
-	taskMessage := ""
+	db := model.DB.WithContext(ctx)
+	err := errors.Join(
+		runAssetStatusSyncBatch(db),
+		runAssetUploadBatch(db),
+		refreshAssetSyncStatus(db),
+	)
+	status := model.SystemTaskStatusSucceeded
+	message := ""
 	if err != nil {
-		taskStatus = model.SystemTaskStatusFailed
-		taskMessage = err.Error()
+		status = model.SystemTaskStatusFailed
+		message = err.Error()
 	}
-	if err = model.FinishSystemTask(task.TaskID, runnerID, taskStatus, nil, taskMessage); err != nil {
+	if err := model.FinishSystemTask(task.TaskID, runnerID, status, nil, message); err != nil {
 		logSystemTaskLockError(ctx, task, err)
 	}
 }
 
-func runAssetStatusSyncBatch(chs []*model.Channel) error {
-	ids := make([]int, 0, len(chs))
-	for _, channel := range chs {
-		ids = append(ids, channel.Id)
+func assetSyncRowsByChannel(rows []model.AssetChannel) map[int][]*model.AssetChannel {
+	grouped := make(map[int][]*model.AssetChannel)
+	for i := range rows {
+		grouped[rows[i].ChannelId] = append(grouped[rows[i].ChannelId], &rows[i])
 	}
+	return grouped
+}
+
+// Workers use persisted mappings, including backfills to disabled channels.
+func runAssetStatusSyncBatch(db *gorm.DB) error {
 	var rows []model.AssetChannel
-	if err := model.DB.Where("channel_id IN ?", ids).Where("next_poll_at <= ?", time.Now().Unix()).
-		Where("status = ?", model.AssetStatusProcessing).Where("upstream_asset_id <> ?", "").
-		Where("asset_id IN (?)", model.DB.Model(&model.Asset{}).Select("id")).
-		Order("next_poll_at ASC").Order("id ASC").Limit(assetSyncBatchSize).
-		Find(&rows).Error; err != nil {
+	if err := db.Where("status = ?", model.AssetStatusProcessing).
+		Where("upstream_asset_id <> ?", "").
+		Where("next_poll_at <= ?", time.Now().Unix()).
+		Order("next_poll_at ASC").Order("id ASC").
+		Limit(assetSyncBatchSize).Find(&rows).Error; err != nil {
 		return err
 	}
-	cm := make(map[int][]*model.AssetChannel)
-	for i := range rows {
-		cm[rows[i].ChannelId] = append(cm[rows[i].ChannelId], &rows[i])
-	}
-	for _, channel := range chs {
-		pending := cm[channel.Id]
-		if len(pending) == 0 {
-			continue
+	for channelID, pending := range assetSyncRowsByChannel(rows) {
+		var (
+			adaptor assetrelay.Adaptor
+			channel model.Channel
+		)
+
+		err := db.First(&channel, channelID).Error
+		if err == nil {
+			adaptor, err = assetrelay.GetAdaptor(&channel)
 		}
-		adaptor, err := assetrelay.GetAdaptor(channel)
+
 		if err != nil {
 			for _, row := range pending {
-				if err = saveAssetSyncFailure(row, "Unable to retrieve a valid upstream asset", false); err != nil {
-					return err
+				if taskErr := saveAssetSyncFailure(db, row, err.Error()); taskErr != nil {
+					return taskErr
 				}
 			}
 			continue
 		}
+
 		for _, row := range pending {
-			if err = syncAssetChannelStatus(row, adaptor); err != nil {
+			if err = syncAssetChannelStatus(db, row, adaptor); err == nil {
+				continue
+			}
+			if err = saveAssetSyncFailure(db, row, err.Error()); err != nil {
 				return err
 			}
 		}
@@ -163,99 +163,103 @@ func runAssetStatusSyncBatch(chs []*model.Channel) error {
 	return nil
 }
 
-func runAssetUploadBatch(chs []*model.Channel) error {
-	ids := make([]int, 0, len(chs))
-	for _, target := range chs {
-		ids = append(ids, target.Id)
-	}
+func runAssetUploadBatch(db *gorm.DB) error {
 	var rows []model.AssetChannel
-	if err := model.DB.Where("channel_id IN ?", ids).Where("next_poll_at <= ?", time.Now().Unix()).
-		Where("status IN ?", []string{model.AssetStatusPending, model.AssetStatusProcessing}).
+	if err := db.Preload("Asset").
+		Where("status = ?", model.AssetStatusPending).
 		Where("upstream_asset_id = ?", "").
-		Where("asset_id IN (?)", model.DB.Model(&model.Asset{}).Select("id")).
-		Order("next_poll_at ASC").Order("id ASC").Limit(assetSyncBatchSize).
+		Where("next_poll_at <= ?", time.Now().Unix()).
+		Order("next_poll_at ASC").
+		Order("id ASC").
+		Limit(assetSyncBatchSize).
 		Find(&rows).Error; err != nil {
 		return err
 	}
-	cm := make(map[int][]*model.AssetChannel)
-	for i := range rows {
-		cm[rows[i].ChannelId] = append(cm[rows[i].ChannelId], &rows[i])
-	}
+	for channelID, pending := range assetSyncRowsByChannel(rows) {
+		var (
+			adaptor assetrelay.Adaptor
+			channel model.Channel
+		)
 
-	for _, channel := range chs {
-		pending := cm[channel.Id]
-		if len(pending) == 0 {
-			continue
+		err := db.First(&channel, channelID).Error
+		if err == nil {
+			adaptor, err = assetrelay.GetAdaptor(&channel)
 		}
-		adaptor, err := assetrelay.GetAdaptor(channel)
 		if err != nil {
 			for _, row := range pending {
-				if err = saveAssetSyncFailure(row, "Unable to retrieve a valid upstream asset", false); err != nil {
+				if taskErr := saveAssetSyncFailure(db, row, err.Error()); taskErr != nil {
 					return err
 				}
 			}
 			continue
 		}
-		groupID, err := upstreamAssetSyncGroup(adaptor, channel.Id)
-		if err != nil {
-			for _, row := range pending {
-				if err = saveAssetSyncFailure(row, "Unable to retrieve a valid upstream asset", false); err != nil {
-					return err
-				}
-			}
-			continue
-		}
+		groups := make(map[string][]*model.AssetChannel)
 		for _, row := range pending {
-			if err = uploadAssetChannel(row, adaptor, groupID); err != nil {
-				return err
+			groups[row.Asset.GroupId] = append(groups[row.Asset.GroupId], row)
+		}
+		for groupID, members := range groups {
+			upstreamID, groupErr := upstreamAssetSyncGroup(db, adaptor, channelID, groupID)
+			if groupErr != nil {
+				for _, row := range members {
+					if err = saveAssetSyncFailure(db, row, groupErr.Error()); err != nil {
+						return err
+					}
+				}
+				continue
+			}
+			for _, row := range members {
+				if err = uploadAssetChannel(db, row, adaptor, upstreamID); err == nil {
+					continue
+				}
+				if err = saveAssetSyncFailure(db, row, err.Error()); err != nil {
+					return err
+				}
 			}
 		}
 	}
 	return nil
 }
 
-// Recompute initial availability without revoking assets that are already Active.
-func refreshAssetSyncStatus(targets []*model.Channel) error {
-	ids := make([]int, 0, len(targets))
-	for _, target := range targets {
-		ids = append(ids, target.Id)
-	}
-	if len(ids) == 0 {
-		return errors.New("asset sync requires at least one channel")
-	}
-	failed := model.DB.Model(&model.AssetChannel{}).Select("asset_id").
-		Where("channel_id IN ?", ids).Where("status = ?", model.AssetStatusFailed)
+// Only the initial snapshot affects availability. Backfills never revoke Active.
+func refreshAssetSyncStatus(db *gorm.DB) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		initial := tx.Model(&model.AssetChannel{}).Select("asset_id").
+			Where("manual = ?", false)
 
-	active := model.DB.Model(&model.AssetChannel{}).Select("asset_id").Where("channel_id IN ?", ids).
-		Where("status = ?", model.AssetStatusActive).Where("upstream_asset_id <> ?", "").
-		Group("asset_id").Having("COUNT(*) = ?", len(ids))
+		failed := tx.Model(&model.AssetChannel{}).Select("asset_id").
+			Where("status = ?", model.AssetStatusFailed).
+			Where("manual = ?", false)
 
-	return model.DB.Transaction(func(tx *gorm.DB) error {
-		failure := datatypes.JSON(`{"Code":"AssetChannelSyncFailed","Message":"Asset synchronization failed on a required channel"}`)
-		err := tx.Model(&model.Asset{}).Where("id IN (?)", failed).
+		unfinished := tx.Model(&model.AssetChannel{}).Select("asset_id").
+			Where("status <> ?", model.AssetStatusActive).
+			Where("manual = ?", false)
+
+		failure := datatypes.NewJSONType(dto.AssetError{
+			Message: "Asset synchronization failed on a required channel",
+			Code:    "AssetChannelSyncFailed",
+		})
+
+		if err := tx.Model(&model.Asset{}).Where("id IN (?)", failed).
 			Where("status <> ?", model.AssetStatusFailed).
 			Where("status <> ?", model.AssetStatusActive).
 			Updates(map[string]any{
 				"status":      model.AssetStatusFailed,
 				"update_time": time.Now(),
 				"error":       failure,
-			}).Error
-		if err != nil {
+			}).Error; err != nil {
 			return err
 		}
-		err = tx.Model(&model.Asset{}).Where("id IN (?)", active).
+		if err := tx.Model(&model.Asset{}).Where("id IN (?)", initial).
+			Where("id NOT IN (?)", unfinished).
 			Where("status <> ?", model.AssetStatusActive).
-			Where("id NOT IN (?)", failed).
 			Updates(map[string]any{
 				"status":      model.AssetStatusActive,
-				"error":       nil,
 				"update_time": time.Now(),
-			}).Error
-		if err != nil {
+				"error":       nil,
+			}).Error; err != nil {
 			return err
 		}
-
-		return tx.Model(&model.Asset{}).Where("id NOT IN (?)", active).
+		return tx.Model(&model.Asset{}).Where("id IN (?)", unfinished).
 			Where("status <> ?", model.AssetStatusProcessing).
 			Where("status <> ?", model.AssetStatusActive).
 			Where("id NOT IN (?)", failed).
@@ -267,131 +271,111 @@ func refreshAssetSyncStatus(targets []*model.Channel) error {
 	})
 }
 
-func uploadAssetChannel(row *model.AssetChannel, adaptor assetrelay.Adaptor, groupID string) error {
-	var local model.Asset
-	if err := model.DB.First(&local, "id = ?", row.AssetId).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil
-		}
-		return err
+func uploadAssetChannel(db *gorm.DB, row *model.AssetChannel, adaptor assetrelay.Adaptor, groupID string) error {
+	request := dto.CreateAssetRequest{
+		AssetType: row.Asset.AssetType,
+		Name:      row.Asset.Name,
+		URL:       row.Asset.URL,
+		GroupId:   groupID,
 	}
-	if row.Status == model.AssetStatusProcessing {
-		return saveAssetSyncFailure(row, "Upstream creation result is unknown; reconciliation is pending", false)
+	if row.Asset.Moderation != nil {
+		request.Moderation = new(row.Asset.Moderation.Data())
 	}
-	var moderation dto.AssetModeration
-	if local.Moderation != nil {
-		if err := common.UnmarshalJsonStr(*local.Moderation, &moderation); err != nil {
-			return saveAssetSyncFailure(row, "Invalid asset moderation configuration", true)
-		}
-	}
-	claimed := model.DB.Model(&model.AssetChannel{}).Where("id = ?", row.Id).
-		Where("status = ?", model.AssetStatusPending).
-		Where("upstream_asset_id = ?", "").
-		Update("status", model.AssetStatusProcessing)
-	if claimed.Error != nil {
-		return claimed.Error
-	}
-	if claimed.RowsAffected == 0 {
-		return nil
-	}
-	row.Status = model.AssetStatusProcessing
-	assetRequest := dto.CreateAssetRequest{
-		AssetType:  local.AssetType,
-		Moderation: &moderation,
-		URL:        local.URL,
-		Name:       local.Id,
-		GroupId:    groupID,
-	}
-	created, err := adaptor.CreateAssets(&assetRequest)
+	created, err := adaptor.CreateAssets(&request)
 	if err != nil || created == nil || created.Id == "" {
-		return saveAssetSyncFailure(row, "Upstream creation result is unknown; reconciliation is pending", false)
+		return fmt.Errorf("unable to create upstream asset")
 	}
-	row.UpstreamAssetId = created.Id
-	return model.DB.Model(&model.AssetChannel{}).Where("id = ?", row.Id).
+	return db.Model(&model.AssetChannel{}).Where("id = ?", row.Id).
 		Updates(map[string]any{
 			"next_poll_at":      time.Now().Add(assetSyncPollInterval).Unix(),
 			"status":            model.AssetStatusProcessing,
-			"upstream_asset_id": row.UpstreamAssetId,
+			"upstream_asset_id": created.Id,
 			"retry_count":       0,
 			"error":             nil,
 		}).Error
 }
 
-func syncAssetChannelStatus(row *model.AssetChannel, adaptor assetrelay.Adaptor) error {
+func syncAssetChannelStatus(db *gorm.DB, row *model.AssetChannel, adaptor assetrelay.Adaptor) error {
 	remote, err := adaptor.GetAsset(&dto.GetAssetRequest{Id: row.UpstreamAssetId})
 	if err != nil {
-		return saveAssetSyncFailure(row, "Unable to retrieve a valid upstream asset", false)
+		return fmt.Errorf("unable to retrieve asset: %v", err)
 	}
 	switch remote.Status {
 	case model.AssetStatusActive, model.AssetStatusProcessing:
-		return model.DB.Model(&model.AssetChannel{}).Where("id = ?", row.Id).
+		var next int64
+		if remote.Status == model.AssetStatusProcessing {
+			next = time.Now().Add(assetSyncPollInterval).Unix()
+		}
+		return db.Model(&model.AssetChannel{}).Where("id = ?", row.Id).
 			Updates(map[string]any{
-				"next_poll_at": time.Now().Add(assetSyncPollInterval).Unix(),
 				"status":       remote.Status,
+				"next_poll_at": next,
 				"retry_count":  0,
 				"error":        nil,
 			}).Error
 	case model.AssetStatusFailed:
-		failure := datatypes.JSON(`{"Code":"UpstreamAssetFailed","Message":"Upstream asset processing or moderation failed"}`)
-		if remote.Error != nil {
-			failure = datatypes.JSON(*remote.Error)
+		failure := dto.AssetError{
+			Message: "Asset processing or moderation failed",
+			Code:    "AssetFailed",
 		}
-		return model.DB.Model(&model.AssetChannel{}).Where("id = ?", row.Id).
+		if remote.Error != nil {
+			failure = *remote.Error
+		}
+		return db.Model(&model.AssetChannel{}).Where("id = ?", row.Id).
 			Updates(map[string]any{
+				"error":        datatypes.NewJSONType(failure),
 				"status":       model.AssetStatusFailed,
-				"error":        failure,
 				"next_poll_at": 0,
 			}).Error
 	default:
-		return saveAssetSyncFailure(row, "Upstream returned an unsupported asset status", false)
+		return fmt.Errorf("unsupported status %v", remote.Status)
 	}
 }
 
-func upstreamAssetSyncGroup(adaptor assetrelay.Adaptor, channelID int) (string, error) {
-	var mapping model.AssetGroupChannel
-	err := model.DB.Where("channel_id = ?", channelID).First(&mapping).Error
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+func upstreamAssetSyncGroup(db *gorm.DB, adaptor assetrelay.Adaptor, channelID int, localGroupID string) (string, error) {
+	var group model.AssetGroup
+	if err := db.Select("id", "group_type").First(&group, "id = ?", localGroupID).Error; err != nil {
 		return "", err
 	}
-	if mapping.UpstreamGroupId != "" {
+	groupID := ""
+	if group.GroupType == "LivenessFace" {
+		groupID = group.Id
+	}
+	var mapping model.AssetGroupChannel
+	err := db.Where("channel_id = ?", channelID).Where("group_id = ?", groupID).Take(&mapping).Error
+	if err == nil {
 		return mapping.UpstreamGroupId, nil
 	}
-	request := dto.CreateAssetGroupRequest{
-		Name:      generateAssetScopedID("666api-assets"),
-		GroupType: "AIGC",
+	if !errors.Is(err, gorm.ErrRecordNotFound) || group.GroupType == "LivenessFace" {
+		return "", err
 	}
-	created, err := adaptor.CreateAssetGroup(&request)
+	created, err := adaptor.CreateAssetGroup(&dto.CreateAssetGroupRequest{
+		Name: generateAssetScopedID("666api-assets"), GroupType: "AIGC",
+	})
 	if err != nil {
 		return "", err
 	}
-	mapping.ChannelId = channelID
-	mapping.UpstreamGroupId = created.Id
-	err = model.DB.Create(&mapping).Error
-	return created.Id, err
+	if created == nil || created.Id == "" {
+		return "", errors.New("empty upstream group response")
+	}
+	mapping = model.AssetGroupChannel{ChannelId: channelID, UpstreamGroupId: created.Id}
+	if err = db.Create(&mapping).Error; err != nil {
+		return "", err
+	}
+	return created.Id, nil
 }
 
-func saveAssetSyncFailure(row *model.AssetChannel, message string, terminal bool) error {
+func saveAssetSyncFailure(db *gorm.DB, row *model.AssetChannel, message string) error {
 	retries := row.RetryCount + 1
 	status := row.Status
-	if row.UpstreamAssetId == "" {
-		status = model.AssetStatusPending
-	}
-	if terminal || retries >= assetSyncMaxRetries {
-		status = model.AssetStatusFailed
-	}
-	encoded, err := common.Marshal(map[string]string{"Code": "AssetSyncFailed", "Message": message})
-	if err != nil {
-		return err
-	}
 	next := time.Now().Add(min(15*time.Second*time.Duration(1<<min(retries-1, 5)), 5*time.Minute)).Unix()
-	if status == model.AssetStatusFailed {
+	if retries >= assetSyncMaxRetries {
+		status = model.AssetStatusFailed
 		next = 0
 	}
-	return model.DB.Model(&model.AssetChannel{}).Where("id = ?", row.Id).
+	return db.Model(&model.AssetChannel{}).Where("id = ?", row.Id).
 		Updates(map[string]any{
-			"error":        datatypes.JSON(encoded),
-			"retry_count":  retries,
-			"status":       status,
-			"next_poll_at": next,
+			"error":       datatypes.NewJSONType(dto.AssetError{Code: "AssetSyncFailed", Message: message}),
+			"retry_count": retries, "status": status, "next_poll_at": next,
 		}).Error
 }

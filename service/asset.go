@@ -219,7 +219,7 @@ func CreateAsset(userId int, req *dto.CreateAssetRequest) (*dto.CreateAssetRespo
 	if _, err := getAssetGroupById(userId, req.GroupId); err != nil {
 		return nil, err
 	}
-	chs, err := assetSyncTargets()
+	chs, err := availableDoubaoAssetChannels()
 	if err != nil {
 		return nil, err
 	}
@@ -414,12 +414,12 @@ func GetVisualValidateResult(c *gin.Context, req *dto.GetVisualValidateResultReq
 	group := &model.AssetGroup{
 		UserId:      c.GetInt("id"),
 		Id:          result.GroupId,
+		GroupType:   "LivenessFace",
 		Name:        "real-human",
 		Description: "real-human",
 		CreateTime:  time.Now(),
 		UpdateTime:  time.Now(),
 		ProjectName: "default",
-		GroupType:   "AIGC",
 	}
 	if err = model.DB.Create(group).Error; err != nil {
 		return nil, err
