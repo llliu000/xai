@@ -217,8 +217,19 @@ func deleteChannelAssetMappings(db *gorm.DB, channelID int) error {
 		if err := tx.Where("channel_id = ?", channelID).Delete(&model.AssetGroupChannel{}).Error; err != nil {
 			return err
 		}
-		err := tx.Where("channel_id = ?", channelID).Delete(&model.AssetChannel{}).Error
-		return err
+		var rows []model.AssetChannel
+		return tx.Select("id", "asset_id", "manual").Where("channel_id = ?", channelID).
+			FindInBatches(&rows, assetSyncBatchSize, func(batchTx *gorm.DB, _ int) error {
+				if err := batchTx.Delete(&rows).Error; err != nil {
+					return err
+				}
+				for _, row := range rows {
+					if err := refreshAssetSyncStatus(batchTx, row.AssetId, nil); err != nil {
+						return err
+					}
+				}
+				return nil
+			}).Error
 	})
 }
 
