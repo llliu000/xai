@@ -420,7 +420,6 @@ func GetVisualValidateResult(c *gin.Context, req *dto.GetVisualValidateResultReq
 		UpdateTime:  time.Now(),
 		ProjectName: "default",
 		GroupType:   "AIGC",
-		RealHuman:   true,
 	}
 	if err = model.DB.Create(group).Error; err != nil {
 		return nil, err
