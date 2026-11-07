@@ -49,8 +49,8 @@ type Asset struct {
 // 同一渠道的密钥必须属于相同账号和项目；更换账号或项目应使用新渠道。
 type AssetGroupChannel struct {
 	Id              int64  `json:"id" gorm:"primaryKey"`
-	ChannelId       int    `json:"channel_id" gorm:"not null;index;uniqueIndex:uk_asset_group_channel,priority:2"`
-	GroupId         string `json:"group_id" gorm:"type:varchar(191);not null;index"`
+	ChannelId       int    `json:"channel_id" gorm:"not null;index;uniqueIndex:uk_asset_group_channel"`
+	GroupId         string `json:"group_id" gorm:"type:varchar(191);not null;uniqueIndex:uk_asset_group_channel"`
 	UpstreamGroupId string `json:"upstream_group_id" gorm:"type:varchar(191);index"`
 	CreateTime      int64  `json:"create_time" gorm:"autoCreateTime"`
 	UpdateTime      int64  `json:"update_time" gorm:"autoUpdateTime"`
