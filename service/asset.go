@@ -202,6 +202,10 @@ func DeleteAssetGroup(userId int, req *dto.DeleteAssetGroupRequest) (*dto.Delete
 		return nil, err
 	}
 	if err := model.DB.Transaction(func(tx *gorm.DB) error {
+		assets := tx.Model(&model.Asset{}).Select("id").Where("user_id = ?", userId).Where("group_id = ?", group.Id)
+		if err := tx.Where("asset_id IN (?)", assets).Delete(&model.AssetChannel{}).Error; err != nil {
+			return err
+		}
 		if err := tx.Where("user_id = ? AND group_id = ?", userId, group.Id).Delete(&model.Asset{}).Error; err != nil {
 			return err
 		}
@@ -361,7 +365,13 @@ func UpdateAsset(userId int, req *dto.UpdateAssetRequest) (*dto.UpdateAssetRespo
 }
 
 func DeleteAsset(userId int, req *dto.DeleteAssetRequest) (*dto.DeleteAssetResponse, error) {
-	err := model.DB.Where("user_id = ? AND id = ?", userId, req.Id).Delete(&model.Asset{}).Error
+	err := model.DB.Transaction(func(tx *gorm.DB) error {
+		assets := tx.Model(&model.Asset{}).Select("id").Where("user_id = ?", userId).Where("id = ?", req.Id)
+		if err := tx.Where("asset_id IN (?)", assets).Delete(&model.AssetChannel{}).Error; err != nil {
+			return err
+		}
+		return tx.Where("user_id = ?", userId).Where("id = ?", req.Id).Delete(&model.Asset{}).Error
+	})
 	return &dto.DeleteAssetResponse{}, err
 }
 

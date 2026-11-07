@@ -28,7 +28,7 @@ type AssetGroup struct {
 }
 
 // Asset 保存本地素材身份和可供渠道重新上传的持久原始地址。
-// Status 是所有目标渠道的汇总状态，仅全部 Active 时才为 Active。
+// Status 在首次上传的所有目标渠道均 Active 后变为 Active，后续渠道补同步不回退此状态。
 // 生成任务仍需检查选中渠道上的全部素材映射，不能只依赖此汇总状态。
 type Asset struct {
 	Id          string          `json:"id" gorm:"type:varchar(191);primaryKey"`

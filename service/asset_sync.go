@@ -98,29 +98,15 @@ func SyncAssetsToChannel(ctx context.Context, channelID int) (int64, error) {
 		if len(ids) == 0 {
 			break
 		}
-		var inserted int64
 		rows := make([]model.AssetChannel, 0, len(ids))
 		for _, id := range ids {
 			rows = append(rows, model.AssetChannel{AssetId: id, ChannelId: channelID, Status: model.AssetStatusPending})
 		}
-		err := db.Transaction(func(tx *gorm.DB) error {
-			result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&rows)
-			if result.Error != nil {
-				return result.Error
-			}
-			inserted = result.RowsAffected
-			return tx.Model(&model.Asset{}).Where("id IN ?", ids).
-				Where("status = ?", model.AssetStatusActive).
-				Updates(map[string]any{
-					"status":      model.AssetStatusProcessing,
-					"update_time": time.Now(),
-					"error":       nil,
-				}).Error
-		})
-		if err != nil {
-			return 0, err
+		result := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&rows)
+		if result.Error != nil {
+			return 0, result.Error
 		}
-		queued += inserted
+		queued += result.RowsAffected
 	}
 	if queued > 0 {
 		if _, _, err := EnqueueSystemTask(assetSyncTaskType, nil); err != nil {
@@ -200,7 +186,7 @@ func runAssetSyncBatch(ctx context.Context, targets []*model.Channel) error {
 	return refreshAssetSyncStatus(targets)
 }
 
-// Recompute local availability after the background worker processes channels.
+// Recompute initial availability without revoking assets that are already Active.
 func refreshAssetSyncStatus(targets []*model.Channel) error {
 	ids := make([]int, 0, len(targets))
 	for _, target := range targets {
@@ -220,6 +206,7 @@ func refreshAssetSyncStatus(targets []*model.Channel) error {
 		failure := datatypes.JSON(`{"Code":"AssetChannelSyncFailed","Message":"Asset synchronization failed on a required channel"}`)
 		err := tx.Model(&model.Asset{}).Where("id IN (?)", failed).
 			Where("status <> ?", model.AssetStatusFailed).
+			Where("status <> ?", model.AssetStatusActive).
 			Updates(map[string]any{
 				"status":      model.AssetStatusFailed,
 				"update_time": time.Now(),
@@ -242,6 +229,7 @@ func refreshAssetSyncStatus(targets []*model.Channel) error {
 
 		return tx.Model(&model.Asset{}).Where("id NOT IN (?)", active).
 			Where("status <> ?", model.AssetStatusProcessing).
+			Where("status <> ?", model.AssetStatusActive).
 			Where("id NOT IN (?)", failed).
 			Updates(map[string]any{
 				"status":      model.AssetStatusProcessing,
@@ -265,7 +253,7 @@ func syncAssetChannel(ctx context.Context, row *model.AssetChannel, adaptor asse
 		}
 		var moderation dto.AssetModeration
 		if local.Moderation != nil {
-			if err := common.UnmarshalJsonStr(*local.Moderation, moderation); err != nil {
+			if err := common.UnmarshalJsonStr(*local.Moderation, &moderation); err != nil {
 				return saveAssetSyncFailure(row, "Invalid asset moderation configuration", true)
 			}
 		}
@@ -288,7 +276,7 @@ func syncAssetChannel(ctx context.Context, row *model.AssetChannel, adaptor asse
 			GroupId:    groupID,
 		}
 		created, err := adaptor.CreateAssets(&assetRequest)
-		if err != nil {
+		if err != nil || created == nil || created.Id == "" {
 			return saveAssetSyncFailure(row, "Upstream creation result is unknown; reconciliation is pending", false)
 		}
 		row.UpstreamAssetId = created.Id
@@ -356,6 +344,9 @@ func upstreamAssetSyncGroup(adaptor assetrelay.Adaptor, channelID int) (string, 
 func saveAssetSyncFailure(row *model.AssetChannel, message string, terminal bool) error {
 	retries := row.RetryCount + 1
 	status := row.Status
+	if row.UpstreamAssetId == "" {
+		status = model.AssetStatusPending
+	}
 	if terminal || retries >= assetSyncMaxRetries {
 		status = model.AssetStatusFailed
 	}

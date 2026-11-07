@@ -15,6 +15,7 @@ func SetAssetRouter(router *gin.Engine) {
 	assetAdminRouter.Use(middleware.RouteTag("api"), middleware.AccessTokenAudit(), middleware.BodyStorageCleanup(),
 		middleware.GlobalAPIRateLimit(), middleware.DisableCache(), middleware.AdminAuth())
 	handlePermissionRoute(assetAdminRouter, http.MethodGet, "/channel/seedance-options", authz.ChannelRead, assetController.GetSeedanceChannelOptions)
+	handlePermissionRoute(assetAdminRouter, http.MethodPost, "/channel/:id/assets/sync", authz.ChannelWrite, assetController.ManualAsset)
 	// User management uses administrator roles; declare its existing PAT scope separately.
 	middleware.DeclareAccessTokenPermissionRoute(http.MethodPut, "/api/user/:id/seedance-channels", authz.Permission{Resource: "user", Action: authz.ActionWrite})
 	assetAdminRouter.PUT("/user/:id/seedance-channels", assetController.UpdateUserSeedanceChannels)
