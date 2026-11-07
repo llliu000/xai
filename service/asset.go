@@ -223,7 +223,7 @@ func CreateAsset(userId int, req *dto.CreateAssetRequest) (*dto.CreateAssetRespo
 	if err != nil {
 		return nil, err
 	}
-	asset := &model.Asset{
+	asset := model.Asset{
 		Id:          generateAssetScopedID("asset"),
 		ProjectName: stringValue(req.ProjectName),
 		Status:      defaultAssetStatus,
@@ -249,7 +249,7 @@ func CreateAsset(userId int, req *dto.CreateAssetRequest) (*dto.CreateAssetRespo
 		})
 	}
 	err = model.DB.Transaction(func(tx *gorm.DB) error {
-		if err = tx.Create(asset).Error; err != nil {
+		if err = tx.Create(&asset).Error; err != nil {
 			return err
 		}
 		return tx.Create(&acs).Error
