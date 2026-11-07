@@ -222,16 +222,25 @@ func CreateAsset(userId int, req *dto.CreateAssetRequest) (*dto.CreateAssetRespo
 	}
 	var chs []*model.Channel
 	if group.GroupType == "LivenessFace" {
-		var ch model.Channel
-		query := model.DB.Model(&model.AssetGroupChannel{}).Select("channel_id").Where("group_id = ?", req.GroupId)
-		if err = model.DB.Where("id = ?", query).Find(&ch).Error; err != nil {
+		query := model.DB.Model(&model.AssetGroupChannel{}).Select("channel_id").
+			Where("group_id = ?", req.GroupId)
+		if err = model.DB.Where("id IN (?)", query).Find(&chs).Error; err != nil {
 			return nil, err
 		}
-		chs = append(chs, &ch)
 	} else {
-		if chs, err = availableDoubaoAssetChannels(); err != nil {
+		var channels []*model.Channel
+		if err = model.DB.Where("type = ?", constant.ChannelTypeTaskPlugin).
+			Order("id ASC").Find(&channels).Error; err != nil {
 			return nil, err
 		}
+		for _, channel := range channels {
+			if channel.GetSetting().TaskPluginKey == "doubao" {
+				chs = append(chs, channel)
+			}
+		}
+	}
+	if len(chs) == 0 {
+		return nil, errors.New("no targets found")
 	}
 
 	asset := model.Asset{

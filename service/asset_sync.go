@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	assetrelay "github.com/QuantumNous/new-api/relay/asset"
@@ -22,24 +21,6 @@ const (
 	assetSyncMaxRetries   = 8
 	assetSyncPollInterval = 15 * time.Second
 )
-
-func availableDoubaoAssetChannels() ([]*model.Channel, error) {
-	var channels []*model.Channel
-	if err := model.DB.Where("type = ?", constant.ChannelTypeTaskPlugin).
-		Order("id ASC").Find(&channels).Error; err != nil {
-		return nil, err
-	}
-	var targets []*model.Channel
-	for _, channel := range channels {
-		if channel.GetSetting().TaskPluginKey == "doubao" {
-			targets = append(targets, channel)
-		}
-	}
-	if len(targets) == 0 {
-		return nil, errors.New("no targets found")
-	}
-	return targets, nil
-}
 
 // SyncAssetsToChannel captures existing assets in one transaction. Later uploads
 // do not extend this backfill; existing mappings retain their original Manual flag.
