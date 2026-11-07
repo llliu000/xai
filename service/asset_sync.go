@@ -114,6 +114,12 @@ func runAssetStatusSyncBatch(db *gorm.DB) error {
 		)
 
 		err := db.First(&channel, channelID).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			if err = deleteChannelAssetMappings(db, channelID); err != nil {
+				return err
+			}
+			continue
+		}
 		if err == nil {
 			adaptor, err = assetrelay.GetAdaptor(&channel)
 		}
@@ -162,6 +168,12 @@ func runAssetUploadBatch(db *gorm.DB) error {
 		)
 
 		err := db.First(&channel, channelID).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			if err = deleteChannelAssetMappings(db, channelID); err != nil {
+				return err
+			}
+			continue
+		}
 		if err == nil {
 			adaptor, err = assetrelay.GetAdaptor(&channel)
 		}
@@ -198,6 +210,16 @@ func runAssetUploadBatch(db *gorm.DB) error {
 		}
 	}
 	return nil
+}
+
+func deleteChannelAssetMappings(db *gorm.DB, channelID int) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("channel_id = ?", channelID).Delete(&model.AssetGroupChannel{}).Error; err != nil {
+			return err
+		}
+		err := tx.Where("channel_id = ?", channelID).Delete(&model.AssetChannel{}).Error
+		return err
+	})
 }
 
 func syncAssetChannelStatus(db *gorm.DB, row *model.AssetChannel, adaptor assetrelay.Adaptor) error {
