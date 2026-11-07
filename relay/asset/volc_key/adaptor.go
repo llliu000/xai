@@ -118,22 +118,22 @@ func (a *Adaptor) doCall(action string, request, response any) error {
 		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return fmt.Errorf("asset upstream returned HTTP %d", resp.StatusCode)
-	}
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
+	}
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf("asset upstream returned HTTP %d: %s", resp.StatusCode, respBody)
 	}
 	if len(respBody) == 0 {
 		return errors.New("asset upstream returned an empty response")
 	}
 	var metadata AssetBaseResult[any]
-	if err := common.Unmarshal(respBody, &metadata); err != nil {
+	if err = common.Unmarshal(respBody, &metadata); err != nil {
 		return fmt.Errorf("asset decode response failed: %w", err)
 	}
 	if upstreamError := metadata.ResponseMetadata.Error; upstreamError.Code != "" || upstreamError.Message != "" {
-		return errors.New("asset upstream rejected the request")
+		return fmt.Errorf("asset upstream returned HTTP %d: %s: %s", resp.StatusCode, upstreamError.Code, upstreamError.Message)
 	}
 	if metadata.Result == nil {
 		return errors.New("asset upstream returned no result")
