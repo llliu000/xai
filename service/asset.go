@@ -216,13 +216,24 @@ func DeleteAssetGroup(userId int, req *dto.DeleteAssetGroupRequest) (*dto.Delete
 }
 
 func CreateAsset(userId int, req *dto.CreateAssetRequest) (*dto.CreateAssetResponse, error) {
-	if _, err := getAssetGroupById(userId, req.GroupId); err != nil {
-		return nil, err
-	}
-	chs, err := availableDoubaoAssetChannels()
+	group, err := getAssetGroupById(userId, req.GroupId)
 	if err != nil {
 		return nil, err
 	}
+	var chs []*model.Channel
+	if group.GroupType == "LivenessFace" {
+		var ch model.Channel
+		query := model.DB.Model(&model.AssetGroupChannel{}).Select("channel_id").Where("group_id = ?", req.GroupId)
+		if err = model.DB.Where("id = ?", query).Find(&ch).Error; err != nil {
+			return nil, err
+		}
+		chs = append(chs, &ch)
+	} else {
+		if chs, err = availableDoubaoAssetChannels(); err != nil {
+			return nil, err
+		}
+	}
+
 	asset := model.Asset{
 		Id:          generateAssetScopedID("asset"),
 		ProjectName: stringValue(req.ProjectName),
@@ -414,6 +425,15 @@ func GetVisualValidateResult(c *gin.Context, req *dto.GetVisualValidateResultReq
 		return nil, err
 	}
 	if result.GroupId == "" {
+		return result, nil
+	}
+	var count int64
+	if err = model.DB.Model(&model.AssetGroup{}).
+		Where("id = ?", result.GroupId).
+		Count(&count).Error; err != nil {
+		return nil, err
+	}
+	if count > 0 {
 		return result, nil
 	}
 	// 创建本地资源并返回
