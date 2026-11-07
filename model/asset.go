@@ -61,19 +61,20 @@ type AssetGroupChannel struct {
 // Manual 区分手动补同步和上传时自动同步，手动补同步不影响本地素材状态。
 // 上游分组通过 ChannelId 对应的 AssetGroupChannel 获取。
 type AssetChannel struct {
-	Id              int64                                    `json:"id" gorm:"primaryKey"`
-	UserId          int                                      `json:"user_id" gorm:"not null;index"`
-	AssetId         string                                   `json:"asset_id" gorm:"type:varchar(191);not null;uniqueIndex:uk_asset_channel,priority:1"`
-	ChannelId       int                                      `json:"channel_id" gorm:"not null;index;uniqueIndex:uk_asset_channel,priority:2"`
-	Moderation      *datatypes.JSONType[dto.AssetModeration] `json:"moderation" gorm:"type:varchar(200)"`                                                    // 审核配置 {"Strategy": "Skip"}
-	Manual          bool                                     `json:"manual"`                                                                                 // true 为手动补同步，false 为上传时自动同步；创建后保持不变。
-	UpstreamAssetId string                                   `json:"upstream_asset_id" gorm:"type:varchar(191);index"`                                       // 上传成功前为空；获得 ID 不代表审核通过。
-	Status          string                                   `json:"status" gorm:"type:varchar(50);not null;index:idx_asset_channel_status_poll,priority:1"` // Pending 为本地待上传，其余状态对应上游结果。
-	Error           *datatypes.JSON                          `json:"error" gorm:"type:jsonb"`                                                                // 错误信息
-	RetryCount      int                                      `json:"retry_count" gorm:"not null"`                                                            // 同步请求连续失败次数，成功后清零。
-	NextPollAt      int64                                    `json:"next_poll_at" gorm:"not null;index:idx_asset_channel_status_poll,priority:2"`            // 下次同步的 Unix 秒，0 表示未调度。
-	CreateTime      int64                                    `json:"create_time" gorm:"autoCreateTime"`
-	UpdateTime      int64                                    `json:"update_time" gorm:"autoUpdateTime"`
+	Id              int64           `json:"id" gorm:"primaryKey"`
+	UserId          int             `json:"user_id" gorm:"not null;index"`
+	AssetId         string          `json:"asset_id" gorm:"type:varchar(191);not null;uniqueIndex:uk_asset_channel,priority:1"`
+	ChannelId       int             `json:"channel_id" gorm:"not null;index;uniqueIndex:uk_asset_channel,priority:2"`
+	Manual          bool            `json:"manual"`                                                                                 // true 为手动补同步，false 为上传时自动同步；创建后保持不变。
+	UpstreamAssetId string          `json:"upstream_asset_id" gorm:"type:varchar(191);index"`                                       // 上传成功前为空；获得 ID 不代表审核通过。
+	Status          string          `json:"status" gorm:"type:varchar(50);not null;index:idx_asset_channel_status_poll,priority:1"` // Pending 为本地待上传，其余状态对应上游结果。
+	Error           *datatypes.JSON `json:"error" gorm:"type:jsonb"`                                                                // 错误信息
+	RetryCount      int             `json:"retry_count" gorm:"not null"`                                                            // 同步请求连续失败次数，成功后清零。
+	NextPollAt      int64           `json:"next_poll_at" gorm:"not null;index:idx_asset_channel_status_poll,priority:2"`            // 下次同步的 Unix 秒，0 表示未调度。
+	CreateTime      int64           `json:"create_time" gorm:"autoCreateTime"`
+	UpdateTime      int64           `json:"update_time" gorm:"autoUpdateTime"`
+
+	Asset Asset `gorm:"foreignKey:AssetId;references:Id"`
 }
 
 func GetUpstreamAssetID(channelID int, assetID string) (string, error) {
