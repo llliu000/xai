@@ -45,34 +45,6 @@ func assetSyncTargets() ([]*model.Channel, error) {
 	return targets, nil
 }
 
-// Bind every required channel atomically with the local asset. No upstream I/O
-// runs in this transaction; committed Pending rows are the durable work queue.
-func createAssetWithChannels(asset *model.Asset) error {
-	targets, err := assetSyncTargets()
-	if err != nil {
-		return err
-	}
-	channels := make([]model.AssetChannel, 0, len(targets))
-	for _, target := range targets {
-		channels = append(channels, model.AssetChannel{
-			Status:    model.AssetStatusPending,
-			ChannelId: target.Id,
-			AssetId:   asset.Id,
-		})
-	}
-	err = model.DB.Transaction(func(tx *gorm.DB) error {
-		if err = tx.Create(asset).Error; err != nil {
-			return err
-		}
-		return tx.Create(&channels).Error
-	})
-	if err != nil {
-		return err
-	}
-	_, _, _ = EnqueueSystemTask(assetSyncTaskType, nil)
-	return nil
-}
-
 // SyncAssetsToChannel queues existing assets that have no mapping to this channel.
 // Uploading and moderation polling remain the responsibility of the background worker.
 func SyncAssetsToChannel(ctx context.Context, channelID int) (int64, error) {
@@ -89,18 +61,18 @@ func SyncAssetsToChannel(ctx context.Context, channelID int) (int64, error) {
 	}
 	var queued int64
 	for {
-		var ids []string
+		var assets []model.Asset
 		existing := db.Model(&model.AssetChannel{}).Select("asset_id").Where("channel_id = ?", channelID)
-		if err := db.Model(&model.Asset{}).Where("id NOT IN (?)", existing).Order("id ASC").
-			Limit(100).Pluck("id", &ids).Error; err != nil {
+		if err := db.Model(&model.Asset{}).Select("id", "user_id").Where("id NOT IN (?)", existing).Order("id ASC").
+			Limit(100).Find(&assets).Error; err != nil {
 			return 0, err
 		}
-		if len(ids) == 0 {
+		if len(assets) == 0 {
 			break
 		}
-		rows := make([]model.AssetChannel, 0, len(ids))
-		for _, id := range ids {
-			rows = append(rows, model.AssetChannel{AssetId: id, ChannelId: channelID, Status: model.AssetStatusPending})
+		rows := make([]model.AssetChannel, 0, len(assets))
+		for _, asset := range assets {
+			rows = append(rows, model.AssetChannel{UserId: asset.UserId, AssetId: asset.Id, ChannelId: channelID, Status: model.AssetStatusPending})
 		}
 		result := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&rows)
 		if result.Error != nil {

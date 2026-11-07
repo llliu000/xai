@@ -1,7 +1,5 @@
 package dto
 
-import "encoding/json"
-
 type SeedanceChannelOption struct {
 	Id     int    `json:"id"`
 	Name   string `json:"name"`
@@ -150,16 +148,21 @@ type ListAssetsResponse struct {
 }
 
 type GetAssetResponse struct {
-	Id          string           `json:"Id"`
-	GroupId     string           `json:"GroupId"`
-	URL         string           `json:"URL"`
-	Name        string           `json:"Name"`
-	AssetType   string           `json:"AssetType"`
-	ProjectName string           `json:"ProjectName"`
-	Status      string           `json:"Status"`
-	CreateTime  string           `json:"CreateTime"`
-	UpdateTime  string           `json:"UpdateTime"`
-	Error       *json.RawMessage `json:"Error,omitempty"`
+	Id          string      `json:"Id"`
+	GroupId     string      `json:"GroupId"`
+	URL         string      `json:"URL"`
+	Name        string      `json:"Name"`
+	AssetType   string      `json:"AssetType"`
+	ProjectName string      `json:"ProjectName"`
+	Status      string      `json:"Status"`
+	CreateTime  string      `json:"CreateTime"`
+	UpdateTime  string      `json:"UpdateTime"`
+	Error       *AssetError `json:"Error,omitempty"`
+}
+
+type AssetError struct {
+	Code    string `json:"Code"`
+	Message string `json:"Message"`
 }
 
 type GetAssetGroupResponse struct {

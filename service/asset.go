@@ -1,7 +1,6 @@
 package service
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -15,6 +14,7 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	kitdto "github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/gin-gonic/gin"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -153,15 +153,13 @@ func GetAssetGroup(userId int, req *dto.GetAssetGroupRequest) (*dto.GetAssetGrou
 }
 
 func getAssetGroupById(userId int, id string) (*model.AssetGroup, error) {
-	id = strings.TrimSpace(id)
-	if id == "" {
-		return nil, errors.New("GroupId is required")
-	}
 	var group model.AssetGroup
-	if err := model.DB.Where("user_id = ? AND id = ?", userId, id).First(&group).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("asset group %s not found", id)
-		}
+	err := model.DB.Where("user_id = ?", userId).
+		Where("id = ?", id).First(&group).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("asset group %s not found", id)
+	}
+	if err != nil {
 		return nil, err
 	}
 	return &group, nil
@@ -218,40 +216,49 @@ func DeleteAssetGroup(userId int, req *dto.DeleteAssetGroupRequest) (*dto.Delete
 }
 
 func CreateAsset(userId int, req *dto.CreateAssetRequest) (*dto.CreateAssetResponse, error) {
-	url := strings.TrimSpace(req.URL)
-	name := strings.TrimSpace(req.Name)
-	groupId := strings.TrimSpace(req.GroupId)
-	assetType := strings.TrimSpace(req.AssetType)
-	projectName := normalizeAssetProjectName(stringValue(req.ProjectName))
-	if _, err := getAssetGroupById(userId, groupId); err != nil {
+	if _, err := getAssetGroupById(userId, req.GroupId); err != nil {
 		return nil, err
 	}
-	if err := validateAssetFields(url, name, assetType); err != nil {
+	chs, err := assetSyncTargets()
+	if err != nil {
 		return nil, err
 	}
 	asset := &model.Asset{
 		Id:          generateAssetScopedID("asset"),
-		UserId:      userId,
-		GroupId:     groupId,
-		URL:         url,
-		Name:        name,
-		AssetType:   assetType,
-		ProjectName: projectName,
+		ProjectName: stringValue(req.ProjectName),
 		Status:      defaultAssetStatus,
+		AssetType:   req.AssetType,
+		GroupId:     req.GroupId,
 		CreateTime:  time.Now(),
 		UpdateTime:  time.Now(),
+		Name:        req.Name,
+		URL:         req.URL,
+		UserId:      userId,
 	}
 	if req.Moderation != nil {
-		marshal, err := common.Marshal(req.Moderation)
-		if err == nil && len(marshal) > 0 {
-			moderation := string(marshal)
-			asset.Moderation = &moderation
-		}
+		asset.Moderation = new(datatypes.NewJSONType(*req.Moderation))
 	}
-	if err := createAssetWithChannels(asset); err != nil {
+	acs := make([]model.AssetChannel, 0, len(chs))
+	for _, ch := range chs {
+		acs = append(acs, model.AssetChannel{
+			Status:    model.AssetStatusPending,
+			UserId:    asset.UserId,
+			AssetId:   asset.Id,
+			ChannelId: ch.Id,
+			Manual:    false,
+		})
+	}
+	err = model.DB.Transaction(func(tx *gorm.DB) error {
+		if err = tx.Create(asset).Error; err != nil {
+			return err
+		}
+		return tx.Create(&acs).Error
+	})
+	if err != nil {
 		return nil, err
 	}
-	return &dto.CreateAssetResponse{Id: asset.Id}, nil
+	_, _, err = EnqueueSystemTask(assetSyncTaskType, nil)
+	return &dto.CreateAssetResponse{Id: asset.Id}, err
 }
 
 func ListAssets(userId int, req *dto.ListAssetsRequest) (*dto.ListAssetsResponse, error) {
@@ -299,7 +306,7 @@ func ListAssets(userId int, req *dto.ListAssetsRequest) (*dto.ListAssetsResponse
 			AssetType:   assets[i].AssetType,
 			ProjectName: assets[i].ProjectName,
 			Status:      assets[i].Status,
-			Error:       (*json.RawMessage)(assets[i].Error),
+			Error:       new(assets[i].Error.Data()),
 			CreateTime:  assets[i].CreateTime.UTC().Format(time.RFC3339),
 			UpdateTime:  assets[i].UpdateTime.UTC().Format(time.RFC3339),
 		})
@@ -325,7 +332,7 @@ func GetAsset(userId int, req *dto.GetAssetRequest) (*dto.GetAssetResponse, erro
 		AssetType:   asset.AssetType,
 		ProjectName: asset.ProjectName,
 		Status:      asset.Status,
-		Error:       (*json.RawMessage)(asset.Error),
+		Error:       new(asset.Error.Data()),
 		CreateTime:  asset.CreateTime.UTC().Format(time.RFC3339),
 		UpdateTime:  asset.UpdateTime.UTC().Format(time.RFC3339),
 	}, nil
