@@ -23,7 +23,6 @@ type AssetGroup struct {
 	Description string    `json:"description" gorm:"type:varchar(300)"`
 	GroupType   string    `json:"group_type" gorm:"type:varchar(50);not null;index"` // AIGC、LivenessFace；真人分组需单独完成上游认证。
 	ProjectName string    `json:"project_name" gorm:"type:varchar(191);index"`       // 项目名称，如 default
-	RealHuman   bool      `json:"real_human" gorm:"type:bool"`                       // 是否真人认证分组
 	CreateTime  time.Time `json:"create_time" gorm:"bigint"`
 	UpdateTime  time.Time `json:"update_time" gorm:"bigint"`
 }
@@ -51,6 +50,7 @@ type Asset struct {
 type AssetGroupChannel struct {
 	Id              int64  `json:"id" gorm:"primaryKey"`
 	ChannelId       int    `json:"channel_id" gorm:"not null;index;uniqueIndex:uk_asset_group_channel,priority:2"`
+	GroupId         string `json:"group_id" gorm:"type:varchar(191);not null;index"`
 	UpstreamGroupId string `json:"upstream_group_id" gorm:"type:varchar(191);index"`
 	CreateTime      int64  `json:"create_time" gorm:"autoCreateTime"`
 	UpdateTime      int64  `json:"update_time" gorm:"autoUpdateTime"`
