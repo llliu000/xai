@@ -298,7 +298,7 @@ func ListAssets(userId int, req *dto.ListAssetsRequest) (*dto.ListAssetsResponse
 	}
 	items := make([]dto.GetAssetResponse, 0, len(assets))
 	for i := range assets {
-		items = append(items, dto.GetAssetResponse{
+		response := dto.GetAssetResponse{
 			Id:          assets[i].Id,
 			GroupId:     assets[i].GroupId,
 			URL:         assets[i].URL,
@@ -306,10 +306,13 @@ func ListAssets(userId int, req *dto.ListAssetsRequest) (*dto.ListAssetsResponse
 			AssetType:   assets[i].AssetType,
 			ProjectName: assets[i].ProjectName,
 			Status:      assets[i].Status,
-			Error:       new(assets[i].Error.Data()),
 			CreateTime:  assets[i].CreateTime.UTC().Format(time.RFC3339),
 			UpdateTime:  assets[i].UpdateTime.UTC().Format(time.RFC3339),
-		})
+		}
+		if assets[i].Error != nil {
+			response.Error = new(assets[i].Error.Data())
+		}
+		items = append(items, response)
 	}
 	return &dto.ListAssetsResponse{
 		Items:      items,
@@ -324,7 +327,7 @@ func GetAsset(userId int, req *dto.GetAssetRequest) (*dto.GetAssetResponse, erro
 	if err != nil {
 		return nil, err
 	}
-	return &dto.GetAssetResponse{
+	response := dto.GetAssetResponse{
 		Id:          asset.Id,
 		GroupId:     asset.GroupId,
 		URL:         asset.URL,
@@ -332,10 +335,13 @@ func GetAsset(userId int, req *dto.GetAssetRequest) (*dto.GetAssetResponse, erro
 		AssetType:   asset.AssetType,
 		ProjectName: asset.ProjectName,
 		Status:      asset.Status,
-		Error:       new(asset.Error.Data()),
 		CreateTime:  asset.CreateTime.UTC().Format(time.RFC3339),
 		UpdateTime:  asset.UpdateTime.UTC().Format(time.RFC3339),
-	}, nil
+	}
+	if asset.Error != nil {
+		response.Error = new(asset.Error.Data())
+	}
+	return &response, nil
 }
 
 func getAssetById(userId int, id string) (*model.Asset, error) {
@@ -411,7 +417,7 @@ func GetVisualValidateResult(c *gin.Context, req *dto.GetVisualValidateResultReq
 		return result, nil
 	}
 	// 创建本地资源并返回
-	group := &model.AssetGroup{
+	group := model.AssetGroup{
 		UserId:      c.GetInt("id"),
 		Id:          result.GroupId,
 		GroupType:   "LivenessFace",
@@ -421,10 +427,18 @@ func GetVisualValidateResult(c *gin.Context, req *dto.GetVisualValidateResultReq
 		UpdateTime:  time.Now(),
 		ProjectName: "default",
 	}
-	if err = model.DB.Create(group).Error; err != nil {
-		return nil, err
+	groupChannel := model.AssetGroupChannel{
+		UpstreamGroupId: result.GroupId,
+		ChannelId:       channel.Id,
+		GroupId:         group.Id,
 	}
-	return result, nil
+	err = model.DB.Transaction(func(tx *gorm.DB) error {
+		if err = tx.Create(&group).Error; err != nil {
+			return err
+		}
+		return tx.Create(&groupChannel).Error
+	})
+	return result, err
 }
 
 func ResolveAssetReferences(info *relaycommon.RelayInfo, body map[string]any) error {

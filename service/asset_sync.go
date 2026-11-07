@@ -187,7 +187,7 @@ func runAssetUploadBatch(db *gorm.DB) error {
 		if err != nil {
 			for _, row := range pending {
 				if taskErr := saveAssetSyncFailure(db, row, err.Error()); taskErr != nil {
-					return err
+					return taskErr
 				}
 			}
 			continue
@@ -319,7 +319,7 @@ func saveAssetChannelSyncResult(db *gorm.DB, row *model.AssetChannel, updates ma
 		if result.RowsAffected == 0 || row.Manual || updates["status"] == row.Status {
 			return nil
 		}
-		return refreshAssetSyncStatus(tx, row)
+		return refreshAssetSyncStatus(tx, row.AssetId, updates["error"])
 	})
 }
 
@@ -338,13 +338,13 @@ func saveAssetSyncFailure(db *gorm.DB, row *model.AssetChannel, message string) 
 }
 
 // Only the initial snapshot affects availability. Backfills never revoke Active.
-func refreshAssetSyncStatus(tx *gorm.DB, ac *model.AssetChannel) error {
+func refreshAssetSyncStatus(tx *gorm.DB, assetID string, acError any) error {
 	var counts []struct {
 		Status string
 		Count  int64
 	}
 	if err := tx.Model(&model.AssetChannel{}).Select("status, COUNT(*) AS count").
-		Where("asset_id = ?", ac.AssetId).Where("manual = ?", false).
+		Where("asset_id = ?", assetID).Where("manual = ?", false).
 		Group("status").Scan(&counts).Error; err != nil {
 		return err
 	}
@@ -369,16 +369,16 @@ func refreshAssetSyncStatus(tx *gorm.DB, ac *model.AssetChannel) error {
 	}
 	updates := map[string]any{"status": status, "error": nil, "update_time": time.Now()}
 	if status == model.AssetStatusFailed {
-		if ac.Error == nil {
+		if acError == nil {
 			updates["error"] = datatypes.NewJSONType(dto.AssetError{
 				Message: "Asset synchronization failed on a required channel",
 				Code:    "AssetChannelSyncFailed",
 			})
 		} else {
-			updates["error"] = *ac.Error
+			updates["error"] = acError
 		}
 	}
-	return tx.Model(&model.Asset{}).Where("id = ?", ac.AssetId).
+	return tx.Model(&model.Asset{}).Where("id = ?", assetID).
 		Where("status <> ?", model.AssetStatusActive).Where("status <> ?", status).
 		Updates(updates).Error
 }
