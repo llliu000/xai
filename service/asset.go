@@ -199,16 +199,24 @@ func DeleteAssetGroup(userId int, req *dto.DeleteAssetGroupRequest) (*dto.Delete
 	if err != nil {
 		return nil, err
 	}
-	if err := model.DB.Transaction(func(tx *gorm.DB) error {
+	if err = model.DB.Transaction(func(tx *gorm.DB) error {
 		assets := tx.Model(&model.Asset{}).Select("id").Where("user_id = ?", userId).Where("group_id = ?", group.Id)
-		if err := tx.Where("asset_id IN (?)", assets).Delete(&model.AssetChannel{}).Error; err != nil {
+		if err = tx.Where("asset_id IN (?)", assets).Delete(&model.AssetChannel{}).Error; err != nil {
 			return err
 		}
-		if err := tx.Where("user_id = ? AND group_id = ?", userId, group.Id).Delete(&model.Asset{}).Error; err != nil {
+		if err = tx.Where("user_id = ? AND group_id = ?", userId, group.Id).Delete(&model.Asset{}).Error; err != nil {
 			return err
 		}
-		result := tx.Where("user_id = ? AND id = ?", userId, group.Id).Delete(&model.AssetGroup{})
-		return result.Error
+		if err = tx.Where("user_id = ? AND id = ?", userId, group.Id).Delete(&model.AssetGroup{}).Error; err != nil {
+			return err
+		}
+		if group.GroupType != "LivenessFace" {
+			return nil
+		}
+		if err = tx.Where("group_id = ?", group.Id).Delete(&model.AssetGroupChannel{}).Error; err != nil {
+			return err
+		}
+		return nil
 	}); err != nil {
 		return nil, err
 	}
@@ -244,9 +252,9 @@ func CreateAsset(userId int, req *dto.CreateAssetRequest) (*dto.CreateAssetRespo
 	}
 
 	asset := model.Asset{
+		ProjectName: normalizeAssetProjectName(stringValue(req.ProjectName)),
 		Id:          generateAssetScopedID("asset"),
-		ProjectName: stringValue(req.ProjectName),
-		Status:      defaultAssetStatus,
+		Status:      model.AssetStatusProcessing,
 		AssetType:   req.AssetType,
 		GroupId:     req.GroupId,
 		CreateTime:  time.Now(),

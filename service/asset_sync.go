@@ -246,7 +246,10 @@ func uploadAssetChannel(db *gorm.DB, row *model.AssetChannel, adaptor assetrelay
 		request.Moderation = new(row.Asset.Moderation.Data())
 	}
 	created, err := adaptor.CreateAssets(&request)
-	if err != nil || created == nil || created.Id == "" {
+	if err != nil {
+		return err
+	}
+	if created == nil || created.Id == "" {
 		return fmt.Errorf("unable to create upstream asset")
 	}
 	return saveAssetChannelSyncResult(db, row, map[string]any{

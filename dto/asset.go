@@ -22,7 +22,7 @@ type BaseAssetRequest struct {
 
 type CreateAssetGroupRequest struct {
 	BaseAssetRequest
-	GroupType   string  `json:"GroupType" binding:"required,oneof=AIGC"`
+	GroupType   string  `json:"GroupType" binding:"required,oneof=AIGC LivenessFace"`
 	Name        string  `json:"Name" binding:"required"`
 	Description *string `json:"Description"`
 }
@@ -43,7 +43,7 @@ type AssetModeration struct {
 type ListAssetGroupsFilter struct {
 	GroupIds  []string `json:"GroupIds"`
 	Name      *string  `json:"Name"`
-	GroupType *string  `json:"GroupType" binding:"omitempty,oneof=AIGC"`
+	GroupType *string  `json:"GroupType" binding:"omitempty,oneof=AIGC LivenessFace"`
 }
 
 type ListAssetGroupsRequest struct {
@@ -57,7 +57,7 @@ type ListAssetGroupsRequest struct {
 
 type ListAssetsFilter struct {
 	GroupIds  []string `json:"GroupIds"`
-	GroupType *string  `json:"GroupType" binding:"omitempty,oneof=AIGC"`
+	GroupType *string  `json:"GroupType" binding:"omitempty,oneof=AIGC LivenessFace"`
 	Statuses  []string `json:"Statuses"`
 	Name      *string  `json:"Name"`
 }
