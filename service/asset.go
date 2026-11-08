@@ -498,7 +498,12 @@ func ResolveAssetReferences(info *relaycommon.RelayInfo, body map[string]any) er
 		if err != nil {
 			return fmt.Errorf("%s not active", assetID)
 		}
-		media["url"] = "asset://" + upstreamID
+
+		if !strings.HasPrefix(assetID, "http") {
+			media["url"] = "asset://" + upstreamID
+		} else {
+			media["url"] = assetID
+		}
 	}
 	return nil
 }

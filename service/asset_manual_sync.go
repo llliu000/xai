@@ -17,7 +17,7 @@ import (
 const (
 	assetSyncPrepareTaskType = "asset_sync_prepare"
 	assetManualSyncTaskType  = "asset_manual_sync"
-	assetManualSyncBatchSize = 50
+	assetManualSyncBatchSize = 200
 )
 
 type assetSyncPreparePayload struct {

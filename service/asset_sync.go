@@ -9,15 +9,17 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	assetrelay "github.com/QuantumNous/new-api/relay/asset"
+	"golang.org/x/sync/errgroup"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
 const (
 	assetSyncTaskType     = "asset_sync"
-	assetSyncBatchSize    = 50
+	assetSyncBatchSize    = 200
+	assetSyncConcurrency  = 50
 	assetSyncMaxRetries   = 8
-	assetSyncPollInterval = 15 * time.Second
+	assetSyncPollInterval = 8 * time.Second
 )
 
 func init() {
@@ -93,13 +95,18 @@ func runAssetStatusSyncBatch(db *gorm.DB, manual bool, batchSize int) error {
 			continue
 		}
 
+		var group errgroup.Group
+		group.SetLimit(assetSyncConcurrency)
 		for _, row := range pending {
-			if err = syncAssetChannelStatus(db, row, adaptor); err == nil {
-				continue
-			}
-			if err = saveAssetSyncFailure(db, row, err.Error()); err != nil {
-				return err
-			}
+			group.Go(func() error {
+				if err := syncAssetChannelStatus(db, row, adaptor); err != nil {
+					return saveAssetSyncFailure(db, row, err.Error())
+				}
+				return nil
+			})
+		}
+		if err = group.Wait(); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -160,13 +167,18 @@ func runAssetUploadBatch(db *gorm.DB, manual bool, batchSize int) error {
 				}
 				continue
 			}
+			var group errgroup.Group
+			group.SetLimit(assetSyncConcurrency)
 			for _, row := range members {
-				if err = uploadAssetChannel(db, row, adaptor, upstreamID); err == nil {
-					continue
-				}
-				if err = saveAssetSyncFailure(db, row, err.Error()); err != nil {
-					return err
-				}
+				group.Go(func() error {
+					if err := uploadAssetChannel(db, row, adaptor, upstreamID); err != nil {
+						return saveAssetSyncFailure(db, row, err.Error())
+					}
+					return nil
+				})
+			}
+			if err = group.Wait(); err != nil {
+				return err
 			}
 		}
 	}
