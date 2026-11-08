@@ -9,6 +9,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
+	assetrelay "github.com/QuantumNous/new-api/relay/asset"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -46,6 +47,19 @@ func SyncAssetsToChannel(ctx context.Context, channelID int) (*model.SystemTask,
 		return &active, nil
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	adaptor, err := assetrelay.GetAdaptor(&channel)
+	if err != nil {
+		return nil, err
+	}
+	request := dto.ListAssetGroupsRequest{
+		Filter: &dto.ListAssetGroupsFilter{
+			GroupType: new("AIGC"),
+		},
+		PageNumber: 1, PageSize: 1,
+	}
+	if _, err = adaptor.ListAssetGroups(&request); err != nil {
 		return nil, err
 	}
 	encoded, err := common.Marshal(assetSyncPreparePayload{ChannelID: channelID, SnapshotAt: time.Now()})
