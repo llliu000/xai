@@ -6,13 +6,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	assetrelay "github.com/QuantumNous/new-api/relay/asset"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 const (
@@ -21,51 +19,6 @@ const (
 	assetSyncMaxRetries   = 8
 	assetSyncPollInterval = 15 * time.Second
 )
-
-// SyncAssetsToChannel captures existing assets in one transaction. Later uploads
-// do not extend this backfill; existing mappings retain their original Manual flag.
-func SyncAssetsToChannel(ctx context.Context, channelID int) (int64, error) {
-	var channel model.Channel
-	if err := model.DB.First(&channel, channelID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return 0, common.NewMessage("Channel does not exist")
-		}
-		return 0, err
-	}
-	if channel.GetSetting().TaskPluginKey != "doubao" {
-		return 0, common.NewMessage("Asset synchronization requires a DoubaoVideo channel")
-	}
-	var queued int64
-	err := model.DB.Transaction(func(tx *gorm.DB) error {
-		var assets []model.Asset
-		existing := tx.Model(&model.AssetChannel{}).Select("asset_id").Where("channel_id = ?", channelID)
-		if err := tx.Select("id", "user_id").Where("id NOT IN (?)", existing).
-			Order("id ASC").Find(&assets).Error; err != nil {
-			return err
-		}
-		if len(assets) == 0 {
-			return nil
-		}
-		rows := make([]model.AssetChannel, 0, len(assets))
-		for _, asset := range assets {
-			rows = append(rows, model.AssetChannel{
-				UserId: asset.UserId, AssetId: asset.Id, ChannelId: channelID,
-				Manual: true, Status: model.AssetStatusPending,
-			})
-		}
-		result := tx.Omit(clause.Associations).Clauses(clause.OnConflict{DoNothing: true}).
-			CreateInBatches(&rows, assetSyncBatchSize)
-		queued = result.RowsAffected
-		return result.Error
-	})
-	if err != nil {
-		return 0, err
-	}
-	if queued > 0 {
-		_, _, err = EnqueueSystemTask(assetSyncTaskType, nil)
-	}
-	return queued, err
-}
 
 func init() { RegisterSystemTaskHandler(assetSyncHandler{}) }
 

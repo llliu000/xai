@@ -226,12 +226,12 @@ func (a *AssetController) ManualAsset(c *gin.Context) {
 		common.ApiErrorT(c, "Invalid channel ID")
 		return
 	}
-	queued, err := service.SyncAssetsToChannel(c, channelID)
+	task, err := service.SyncAssetsToChannel(c.Request.Context(), channelID)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	common.ApiSuccess(c, gin.H{"channel_id": channelID, "queued": queued})
+	common.ApiSuccess(c, gin.H{"channel_id": channelID, "task_id": task.TaskID, "status": task.Status})
 }
 
 func TranslateValidationErrors(errs validator.ValidationErrors) string {
