@@ -20,20 +20,26 @@ const (
 	assetSyncPollInterval = 15 * time.Second
 )
 
-func init() { RegisterSystemTaskHandler(assetSyncHandler{}) }
+func init() {
+	RegisterSystemTaskHandler(assetSyncHandler{taskType: assetSyncTaskType, batchSize: assetSyncBatchSize})
+}
 
-type assetSyncHandler struct{}
+type assetSyncHandler struct {
+	taskType  string
+	manual    bool
+	batchSize int
+}
 
-func (assetSyncHandler) Type() string            { return assetSyncTaskType }
+func (h assetSyncHandler) Type() string          { return h.taskType }
 func (assetSyncHandler) Enabled() bool           { return true }
 func (assetSyncHandler) Interval() time.Duration { return assetSyncPollInterval }
 func (assetSyncHandler) NewPayload() any         { return nil }
 
-func (assetSyncHandler) Run(ctx context.Context, task *model.SystemTask, runnerID string) {
+func (h assetSyncHandler) Run(ctx context.Context, task *model.SystemTask, runnerID string) {
 	db := model.DB.WithContext(ctx)
 	err := errors.Join(
-		runAssetStatusSyncBatch(db),
-		runAssetUploadBatch(db),
+		runAssetStatusSyncBatch(db, h.manual, h.batchSize),
+		runAssetUploadBatch(db, h.manual, h.batchSize),
 	)
 	status := model.SystemTaskStatusSucceeded
 	message := ""
@@ -47,13 +53,14 @@ func (assetSyncHandler) Run(ctx context.Context, task *model.SystemTask, runnerI
 }
 
 // Workers use persisted mappings, including backfills to disabled channels.
-func runAssetStatusSyncBatch(db *gorm.DB) error {
+func runAssetStatusSyncBatch(db *gorm.DB, manual bool, batchSize int) error {
 	var rows []model.AssetChannel
-	if err := db.Where("status = ?", model.AssetStatusProcessing).
+	if err := db.Where("manual = ?", manual).
+		Where("status = ?", model.AssetStatusProcessing).
 		Where("upstream_asset_id <> ?", "").
 		Where("next_poll_at <= ?", time.Now().Unix()).
 		Order("next_poll_at ASC").Order("id ASC").
-		Limit(assetSyncBatchSize).Find(&rows).Error; err != nil {
+		Limit(batchSize).Find(&rows).Error; err != nil {
 		return err
 	}
 	acm := make(map[int][]*model.AssetChannel)
@@ -68,7 +75,7 @@ func runAssetStatusSyncBatch(db *gorm.DB) error {
 
 		err := db.First(&channel, channelID).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			if err = deleteChannelAssetMappings(db, channelID); err != nil {
+			if err = deleteChannelAssetMappings(db, channelID, manual); err != nil {
 				return err
 			}
 			continue
@@ -98,15 +105,16 @@ func runAssetStatusSyncBatch(db *gorm.DB) error {
 	return nil
 }
 
-func runAssetUploadBatch(db *gorm.DB) error {
+func runAssetUploadBatch(db *gorm.DB, manual bool, batchSize int) error {
 	var rows []model.AssetChannel
 	if err := db.Preload("Asset").
+		Where("manual = ?", manual).
 		Where("status = ?", model.AssetStatusPending).
 		Where("upstream_asset_id = ?", "").
 		Where("next_poll_at <= ?", time.Now().Unix()).
 		Order("next_poll_at ASC").
 		Order("id ASC").
-		Limit(assetSyncBatchSize).
+		Limit(batchSize).
 		Find(&rows).Error; err != nil {
 		return err
 	}
@@ -122,7 +130,7 @@ func runAssetUploadBatch(db *gorm.DB) error {
 
 		err := db.First(&channel, channelID).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			if err = deleteChannelAssetMappings(db, channelID); err != nil {
+			if err = deleteChannelAssetMappings(db, channelID, manual); err != nil {
 				return err
 			}
 			continue
@@ -165,18 +173,22 @@ func runAssetUploadBatch(db *gorm.DB) error {
 	return nil
 }
 
-func deleteChannelAssetMappings(db *gorm.DB, channelID int) error {
+func deleteChannelAssetMappings(db *gorm.DB, channelID int, manual bool) error {
 	return db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("channel_id = ?", channelID).Delete(&model.AssetGroupChannel{}).Error; err != nil {
 			return err
 		}
 		var rows []model.AssetChannel
 		return tx.Select("id", "asset_id", "manual").Where("channel_id = ?", channelID).
+			Where("manual = ?", manual).
 			FindInBatches(&rows, assetSyncBatchSize, func(batchTx *gorm.DB, _ int) error {
 				if err := batchTx.Delete(&rows).Error; err != nil {
 					return err
 				}
 				for _, row := range rows {
+					if row.Manual {
+						continue
+					}
 					if err := refreshAssetSyncStatus(batchTx, row.AssetId, nil); err != nil {
 						return err
 					}
