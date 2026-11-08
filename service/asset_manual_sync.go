@@ -36,7 +36,7 @@ func SyncAssetsToChannel(ctx context.Context, channelID int) (*model.SystemTask,
 		}
 		return nil, err
 	}
-	if channel.GetSetting().TaskPluginKey != "doubao" {
+	if channel.GetSetting().TaskPluginKey != "doubao" && channel.GetSetting().Category == "" {
 		return nil, common.NewMessage("Asset synchronization requires a DoubaoVideo channel")
 	}
 

@@ -242,7 +242,8 @@ func CreateAsset(userId int, req *dto.CreateAssetRequest) (*dto.CreateAssetRespo
 			return nil, err
 		}
 		for _, channel := range channels {
-			if channel.GetSetting().TaskPluginKey == "doubao" {
+			setting := channel.GetSetting()
+			if setting.TaskPluginKey == "doubao" && setting.Category != "" {
 				chs = append(chs, channel)
 			}
 		}
