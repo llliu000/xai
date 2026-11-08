@@ -75,6 +75,27 @@ export const channelSchema = z.object({
 
 export type Channel = z.infer<typeof channelSchema>
 
+export interface ChannelAssetSyncTask {
+  channel_id: number
+  task_id: string
+  status: string
+}
+
+export interface ChannelAssetSyncProgress {
+  channel_id: number
+  preparing: boolean
+  prepare_task: {
+    task_id: string
+    status: string
+    error: string
+  } | null
+  total: number
+  pending: number
+  processing: number
+  active: number
+  failed: number
+}
+
 // ============================================================================
 // Channel Settings Types
 // ============================================================================

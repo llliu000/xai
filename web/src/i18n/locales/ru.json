@@ -7408,6 +7408,20 @@
     "Overseas channel": "Зарубежный канал",
     "No binding": "Без привязки",
     "Deleted channel (ID: {{id}})": "Канал удалён (ID: {{id}})",
-    "Select No binding to clear a channel binding.": "Выберите «Без привязки», чтобы удалить привязку канала."
+    "Select No binding to clear a channel binding.": "Выберите «Без привязки», чтобы удалить привязку канала.",
+    "Sync Assets": "Синхронизировать материалы",
+    "Asset Sync Details": "Подробности синхронизации материалов",
+    "Asset synchronization queued": "Синхронизация материалов поставлена в очередь",
+    "Failed to start asset synchronization": "Не удалось запустить синхронизацию материалов",
+    "Synchronize existing eligible assets to channel \"{{name}}\" in the background?": "Синхронизировать существующие подходящие материалы с каналом «{{name}}» в фоновом режиме?",
+    "Manual asset synchronization progress for channel \"{{name}}\"": "Текущий прогресс всех материалов, синхронизируемых вручную с каналом «{{name}}»",
+    "No manually synchronized assets": "Нет материалов для ручной синхронизации",
+    "Preparing asset synchronization": "Подготовка синхронизации материалов",
+    "Asset synchronization preparation failed": "Ошибка подготовки синхронизации материалов",
+    "Asset synchronization in progress": "Синхронизация материалов выполняется",
+    "Asset synchronization finished with failures": "Синхронизация материалов завершена с ошибками",
+    "Asset synchronization completed": "Синхронизация материалов завершена",
+    "Processing": "Обработка",
+    "Pending upload": "Ожидают загрузки"
   }
 }

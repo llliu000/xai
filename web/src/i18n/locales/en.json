@@ -7408,6 +7408,20 @@
     "Overseas channel": "Overseas channel",
     "No binding": "No binding",
     "Deleted channel (ID: {{id}})": "Deleted channel (ID: {{id}})",
-    "Select No binding to clear a channel binding.": "Select No binding to clear a channel binding."
+    "Select No binding to clear a channel binding.": "Select No binding to clear a channel binding.",
+    "Sync Assets": "Sync Assets",
+    "Asset Sync Details": "Asset Sync Details",
+    "Asset synchronization queued": "Asset synchronization queued",
+    "Failed to start asset synchronization": "Failed to start asset synchronization",
+    "Synchronize existing eligible assets to channel \"{{name}}\" in the background?": "Synchronize existing eligible assets to channel \"{{name}}\" in the background?",
+    "Manual asset synchronization progress for channel \"{{name}}\"": "Manual asset synchronization progress for channel \"{{name}}\"",
+    "No manually synchronized assets": "No manually synchronized assets",
+    "Preparing asset synchronization": "Preparing asset synchronization",
+    "Asset synchronization preparation failed": "Asset synchronization preparation failed",
+    "Asset synchronization in progress": "Asset synchronization in progress",
+    "Asset synchronization finished with failures": "Asset synchronization finished with failures",
+    "Asset synchronization completed": "Asset synchronization completed",
+    "Processing": "Processing",
+    "Pending upload": "Pending upload"
   }
 }

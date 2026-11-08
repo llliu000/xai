@@ -7408,6 +7408,20 @@
     "Overseas channel": "Kênh quốc tế",
     "No binding": "Không liên kết",
     "Deleted channel (ID: {{id}})": "Kênh đã xóa (ID: {{id}})",
-    "Select No binding to clear a channel binding.": "Chọn « Không liên kết » để xóa liên kết kênh."
+    "Select No binding to clear a channel binding.": "Chọn « Không liên kết » để xóa liên kết kênh.",
+    "Sync Assets": "Đồng bộ tài nguyên",
+    "Asset Sync Details": "Chi tiết đồng bộ tài nguyên",
+    "Asset synchronization queued": "Đã đưa tác vụ đồng bộ tài nguyên vào hàng đợi",
+    "Failed to start asset synchronization": "Không thể bắt đầu đồng bộ tài nguyên",
+    "Synchronize existing eligible assets to channel \"{{name}}\" in the background?": "Đồng bộ các tài nguyên hiện có đủ điều kiện vào kênh “{{name}}” trong nền?",
+    "Manual asset synchronization progress for channel \"{{name}}\"": "Tiến độ hiện tại của tất cả tài nguyên đồng bộ thủ công trên kênh “{{name}}”",
+    "No manually synchronized assets": "Chưa có tài nguyên đồng bộ thủ công",
+    "Preparing asset synchronization": "Đang chuẩn bị đồng bộ tài nguyên",
+    "Asset synchronization preparation failed": "Chuẩn bị đồng bộ tài nguyên thất bại",
+    "Asset synchronization in progress": "Đang đồng bộ tài nguyên",
+    "Asset synchronization finished with failures": "Đồng bộ tài nguyên đã kết thúc, một số tài nguyên thất bại",
+    "Asset synchronization completed": "Đồng bộ tài nguyên hoàn tất",
+    "Processing": "Đang xử lý",
+    "Pending upload": "Chờ tải lên"
   }
 }

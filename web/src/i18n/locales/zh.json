@@ -7408,6 +7408,20 @@
     "Overseas channel": "海外渠道",
     "No binding": "不绑定",
     "Deleted channel (ID: {{id}})": "渠道已删除（ID：{{id}}）",
-    "Select No binding to clear a channel binding.": "选择“不绑定”可以清空对应渠道的绑定。"
+    "Select No binding to clear a channel binding.": "选择“不绑定”可以清空对应渠道的绑定。",
+    "Sync Assets": "同步素材",
+    "Asset Sync Details": "素材同步详情",
+    "Asset synchronization queued": "素材同步任务已提交",
+    "Failed to start asset synchronization": "提交素材同步任务失败",
+    "Synchronize existing eligible assets to channel \"{{name}}\" in the background?": "将现有符合条件的素材在后台同步到渠道“{{name}}”？",
+    "Manual asset synchronization progress for channel \"{{name}}\"": "渠道“{{name}}”全部手动同步素材的当前进度",
+    "No manually synchronized assets": "暂无手动同步素材",
+    "Preparing asset synchronization": "正在准备素材同步",
+    "Asset synchronization preparation failed": "素材同步准备失败",
+    "Asset synchronization in progress": "素材同步中",
+    "Asset synchronization finished with failures": "素材同步结束，部分素材失败",
+    "Asset synchronization completed": "素材同步完成",
+    "Processing": "处理中",
+    "Pending upload": "待上传"
   }
 }

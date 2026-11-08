@@ -27,6 +27,8 @@ import type {
   BatchDeleteParams,
   BatchSetTagParams,
   Channel,
+  ChannelAssetSyncProgress,
+  ChannelAssetSyncTask,
   ChannelBalanceResponse,
   ChannelOpsResponse,
   ChannelTestResponse,
@@ -284,6 +286,32 @@ export async function batchSetChannelTag(
 // ============================================================================
 // Channel Operations
 // ============================================================================
+
+export async function syncChannelAssets(
+  channelId: number
+): Promise<ChannelAssetSyncTask> {
+  const response = await api.post<{
+    success: boolean
+    data: ChannelAssetSyncTask
+  }>(`/api/channel/${channelId}/assets/sync`)
+  return requireServerSuccess(response.data).data
+}
+
+export async function getChannelAssetSyncProgress(
+  channelId: number,
+  taskId?: string,
+  signal?: AbortSignal
+): Promise<ChannelAssetSyncProgress> {
+  const response = await api.get<{
+    success: boolean
+    data: ChannelAssetSyncProgress
+  }>(`/api/channel/${channelId}/assets/sync`, {
+    params: { task_id: taskId },
+    signal,
+    disableDuplicate: true,
+  })
+  return requireServerSuccess(response.data).data
+}
 
 /**
  * Test channel connectivity

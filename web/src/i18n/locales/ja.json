@@ -7408,6 +7408,20 @@
     "Overseas channel": "海外チャネル",
     "No binding": "紐付けなし",
     "Deleted channel (ID: {{id}})": "削除済みチャネル（ID: {{id}}）",
-    "Select No binding to clear a channel binding.": "「紐付けなし」を選択すると、チャネルの紐付けを解除できます。"
+    "Select No binding to clear a channel binding.": "「紐付けなし」を選択すると、チャネルの紐付けを解除できます。",
+    "Sync Assets": "素材を同期",
+    "Asset Sync Details": "素材同期の詳細",
+    "Asset synchronization queued": "素材同期をキューに追加しました",
+    "Failed to start asset synchronization": "素材同期を開始できませんでした",
+    "Synchronize existing eligible assets to channel \"{{name}}\" in the background?": "既存の対象素材をチャンネル「{{name}}」にバックグラウンドで同期しますか？",
+    "Manual asset synchronization progress for channel \"{{name}}\"": "チャンネル「{{name}}」の全手動同期素材の現在の進捗",
+    "No manually synchronized assets": "手動同期された素材はありません",
+    "Preparing asset synchronization": "素材同期を準備中",
+    "Asset synchronization preparation failed": "素材同期の準備に失敗しました",
+    "Asset synchronization in progress": "素材を同期中",
+    "Asset synchronization finished with failures": "素材同期が完了しました（一部失敗）",
+    "Asset synchronization completed": "素材同期が完了しました",
+    "Processing": "処理中",
+    "Pending upload": "アップロード待ち"
   }
 }

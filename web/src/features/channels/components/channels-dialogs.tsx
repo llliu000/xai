@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { CHANNEL_TYPE_VLLM, CHANNEL_TYPE_SGLANG } from '../constants'
 import { useChannels } from './channels-provider'
 import { BalanceQueryDialog } from './dialogs/balance-query-dialog'
+import { ChannelAssetSyncDialog } from './dialogs/channel-asset-sync-dialog'
 import { ChannelTestDialog } from './dialogs/channel-test-dialog'
 import { CopyChannelDialog } from './dialogs/copy-channel-dialog'
 import { EditTagDialog } from './dialogs/edit-tag-dialog'
@@ -35,6 +36,16 @@ export function ChannelsDialogs() {
 
   return (
     <>
+      {(open === 'asset-sync' || open === 'asset-sync-progress') &&
+        currentRow && (
+          <ChannelAssetSyncDialog
+            key={currentRow.id}
+            channelId={currentRow.id}
+            channelName={currentRow.name}
+            start={open === 'asset-sync'}
+            onClose={() => setOpen(null)}
+          />
+        )}
       {open === 'inference-status' &&
         currentRow &&
         [CHANNEL_TYPE_VLLM, CHANNEL_TYPE_SGLANG].includes(currentRow.type) && (

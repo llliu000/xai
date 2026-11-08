@@ -33,6 +33,7 @@ import {
   Trash2,
   RefreshCw,
   Loader2,
+  ListChecks,
 } from 'lucide-react'
 import { useContext, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -59,7 +60,7 @@ import {
 } from '@/lib/admin-permissions'
 import { useAuthStore } from '@/stores/auth-store'
 
-import { MODEL_FETCHABLE_TYPES } from '../constants'
+import { CHANNEL_TYPE_TASK_PLUGIN, MODEL_FETCHABLE_TYPES } from '../constants'
 import {
   channelsQueryKeys,
   handleDeleteChannel,
@@ -67,6 +68,7 @@ import {
   handleToggleChannelStatus,
   isChannelEnabled,
   isMultiKeyChannel,
+  parseChannelSettings,
 } from '../lib'
 import type { Channel } from '../types'
 import { ChannelRowActionsLayoutContext } from './channel-row-actions-context'
@@ -89,6 +91,19 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
 
   const isEnabled = isChannelEnabled(channel)
   const isMultiKey = isMultiKeyChannel(channel)
+  const isDoubao =
+    channel.type === CHANNEL_TYPE_TASK_PLUGIN &&
+    parseChannelSettings(channel.setting)?.task_plugin_key === 'doubao'
+  const canSyncAssets = hasPermission(
+    currentUser,
+    ADMIN_PERMISSION_RESOURCES.CHANNEL,
+    ADMIN_PERMISSION_ACTIONS.WRITE
+  )
+  const canViewAssetSync = hasPermission(
+    currentUser,
+    ADMIN_PERMISSION_RESOURCES.CHANNEL,
+    ADMIN_PERMISSION_ACTIONS.READ
+  )
   const canEditSensitive = hasPermission(
     currentUser,
     ADMIN_PERMISSION_RESOURCES.CHANNEL,
@@ -316,6 +331,35 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
                 <Boxes size={16} />
               </DropdownMenuShortcut>
             </DropdownMenuItem>
+          )}
+
+          {isDoubao && (
+            <>
+              <DropdownMenuItem
+                disabled={!canSyncAssets}
+                onClick={() => {
+                  setCurrentRow(channel)
+                  setOpen('asset-sync')
+                }}
+              >
+                {t('Sync Assets')}
+                <DropdownMenuShortcut>
+                  <RefreshCw size={16} />
+                </DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!canViewAssetSync}
+                onClick={() => {
+                  setCurrentRow(channel)
+                  setOpen('asset-sync-progress')
+                }}
+              >
+                {t('Asset Sync Details')}
+                <DropdownMenuShortcut>
+                  <ListChecks size={16} />
+                </DropdownMenuShortcut>
+              </DropdownMenuItem>
+            </>
           )}
 
           <DropdownMenuSeparator />

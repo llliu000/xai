@@ -7408,6 +7408,20 @@
     "Overseas channel": "Canal à l’étranger",
     "No binding": "Aucune liaison",
     "Deleted channel (ID: {{id}})": "Canal supprimé (ID : {{id}})",
-    "Select No binding to clear a channel binding.": "Sélectionnez « Aucune liaison » pour supprimer la liaison du canal."
+    "Select No binding to clear a channel binding.": "Sélectionnez « Aucune liaison » pour supprimer la liaison du canal.",
+    "Sync Assets": "Synchroniser les ressources",
+    "Asset Sync Details": "Détails de synchronisation des ressources",
+    "Asset synchronization queued": "Synchronisation des ressources mise en file",
+    "Failed to start asset synchronization": "Échec du lancement de la synchronisation",
+    "Synchronize existing eligible assets to channel \"{{name}}\" in the background?": "Synchroniser les ressources existantes éligibles vers le canal « {{name}} » en arrière-plan ?",
+    "Manual asset synchronization progress for channel \"{{name}}\"": "Progression actuelle de toutes les ressources synchronisées manuellement sur le canal « {{name}} »",
+    "No manually synchronized assets": "Aucune ressource synchronisée manuellement",
+    "Preparing asset synchronization": "Préparation de la synchronisation des ressources",
+    "Asset synchronization preparation failed": "Échec de la préparation de la synchronisation",
+    "Asset synchronization in progress": "Synchronisation des ressources en cours",
+    "Asset synchronization finished with failures": "Synchronisation terminée avec des échecs",
+    "Asset synchronization completed": "Synchronisation des ressources terminée",
+    "Processing": "En cours de traitement",
+    "Pending upload": "En attente de téléversement"
   }
 }
