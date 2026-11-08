@@ -6,6 +6,23 @@ type SeedanceChannelOption struct {
 	Status int    `json:"status"`
 }
 
+type AssetSyncProgress struct {
+	ChannelID   int                   `json:"channel_id"`
+	Preparing   bool                  `json:"preparing"`
+	PrepareTask *AssetSyncPreparation `json:"prepare_task"`
+	Total       int64                 `json:"total"`
+	Pending     int64                 `json:"pending"`
+	Processing  int64                 `json:"processing"`
+	Active      int64                 `json:"active"`
+	Failed      int64                 `json:"failed"`
+}
+
+type AssetSyncPreparation struct {
+	TaskID string `json:"task_id"`
+	Status string `json:"status"`
+	Error  string `json:"error"`
+}
+
 type UpdateUserSeedanceChannelsRequest struct {
 	SeedanceInnerChannelID *int `json:"seedance_inner_channel_id,omitempty" binding:"omitempty,gte=0"`
 	SeedanceOuterChannelID *int `json:"seedance_outer_channel_id,omitempty" binding:"omitempty,gte=0"`

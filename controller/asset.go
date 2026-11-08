@@ -234,6 +234,20 @@ func (a *AssetController) ManualAsset(c *gin.Context) {
 	common.ApiSuccess(c, gin.H{"channel_id": channelID, "task_id": task.TaskID, "status": task.Status})
 }
 
+func (a *AssetController) GetAssetSyncProgress(c *gin.Context) {
+	channelID, err := strconv.Atoi(c.Param("id"))
+	if err != nil || channelID <= 0 {
+		common.ApiErrorT(c, "Invalid channel ID")
+		return
+	}
+	progress, err := service.GetChannelAssetSyncProgress(c.Request.Context(), channelID, c.Query("task_id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, progress)
+}
+
 func TranslateValidationErrors(errs validator.ValidationErrors) string {
 	messages := make([]string, 0, len(errs))
 	for _, e := range errs {

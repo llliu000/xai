@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -67,6 +68,77 @@ func SyncAssetsToChannel(ctx context.Context, channelID int) (*model.SystemTask,
 	}
 	notifySystemTaskRunner()
 	return task, nil
+}
+
+// GetChannelAssetSyncProgress reports the channel's current manual mappings,
+// not a historical batch. taskID optionally identifies a preparation returned
+// by SyncAssetsToChannel; its success only means the queue was prepared.
+func GetChannelAssetSyncProgress(ctx context.Context, channelID int, taskID string) (*dto.AssetSyncProgress, error) {
+	db := model.DB.WithContext(ctx)
+	var channel model.Channel
+	if err := db.Select("id").First(&channel, channelID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, common.NewMessage("Channel does not exist")
+		}
+		return nil, err
+	}
+
+	progress := &dto.AssetSyncProgress{ChannelID: channelID}
+	var active model.SystemTask
+	err := db.Where("active_key = ?", fmt.Sprintf("%s:%d", assetSyncPrepareTaskType, channelID)).Take(&active).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	progress.Preparing = err == nil
+	preparation := &active
+	if taskID != "" {
+		var task model.SystemTask
+		if err := db.Where("task_id = ?", taskID).Where("type = ?", assetSyncPrepareTaskType).Take(&task).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, common.NewMessage("Invalid parameters")
+			}
+			return nil, err
+		}
+		var payload assetSyncPreparePayload
+		if err := task.DecodePayload(&payload); err != nil {
+			return nil, err
+		}
+		if payload.ChannelID != channelID {
+			return nil, common.NewMessage("Invalid parameters")
+		}
+		preparation = &task
+	}
+	if preparation.TaskID != "" {
+		progress.PrepareTask = &dto.AssetSyncPreparation{
+			TaskID: preparation.TaskID,
+			Status: string(preparation.Status),
+			Error:  preparation.Error,
+		}
+	}
+
+	var counts []struct {
+		Status string
+		Count  int64
+	}
+	if err := db.Model(&model.AssetChannel{}).Select("status, COUNT(*) AS count").
+		Where("channel_id = ?", channelID).Where("manual = ?", true).
+		Group("status").Scan(&counts).Error; err != nil {
+		return nil, err
+	}
+	for _, count := range counts {
+		progress.Total += count.Count
+		switch count.Status {
+		case model.AssetStatusPending:
+			progress.Pending = count.Count
+		case model.AssetStatusProcessing:
+			progress.Processing = count.Count
+		case model.AssetStatusActive:
+			progress.Active = count.Count
+		case model.AssetStatusFailed:
+			progress.Failed = count.Count
+		}
+	}
+	return progress, nil
 }
 
 func init() {
