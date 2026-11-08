@@ -103,8 +103,8 @@ func (assetSyncPrepareHandler) Run(ctx context.Context, task *model.SystemTask, 
 	}
 }
 
-// The cutoff excludes later uploads. Each batch commits independently, and
-// conflicts preserve existing mappings and their original Manual flag.
+// The cutoff excludes later uploads. Human assets and failed local assets are
+// skipped. Each batch commits independently, preserving existing mappings.
 func prepareChannelAssetMappings(db *gorm.DB, payload assetSyncPreparePayload) (int64, error) {
 	var channel model.Channel
 	if err := db.First(&channel, payload.ChannelID).Error; err != nil {
@@ -118,8 +118,13 @@ func prepareChannelAssetMappings(db *gorm.DB, payload assetSyncPreparePayload) (
 	existing := db.Model(&model.AssetChannel{}).Select("1").
 		Where("asset_channels.asset_id = assets.id").
 		Where("channel_id = ?", payload.ChannelID)
+	humanGroup := db.Model(&model.AssetGroup{}).Select("1").
+		Where("asset_groups.id = assets.group_id").
+		Where("group_type = ?", "LivenessFace")
 	err := db.Select("id", "user_id").
 		Where("create_time <= ?", payload.SnapshotAt).
+		Where("status <> ?", model.AssetStatusFailed).
+		Where("NOT EXISTS (?)", humanGroup).
 		Where("NOT EXISTS (?)", existing).
 		FindInBatches(&assets, assetManualSyncBatchSize, func(tx *gorm.DB, _ int) error {
 			rows := make([]model.AssetChannel, 0, len(assets))
