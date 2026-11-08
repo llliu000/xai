@@ -24,6 +24,7 @@ func SetAssetRouter(router *gin.Engine) {
 	// doubao https://www.volcengine.com/docs/82379/1521309?lang=zh
 	assetV3Router := router.Group("/api/v3/asset")
 	assetV3Router.Use(middleware.RouteTag("relay"))
+	assetV3Router.Use(middleware.GlobalAPIRateLimit())
 	assetV3Router.Use(middleware.TokenAuth())
 	{
 		assetV3Router.POST("", assetController.Action)
