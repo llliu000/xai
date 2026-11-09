@@ -38,6 +38,9 @@ type ChannelSettings struct {
 	// 同一渠道分类
 	Category        string `json:"category,omitempty"`
 	CategorySetting string `json:"category_setting,omitempty"`
+	// Region distinguishes domestic (cn-beijing, default) and overseas
+	// (ap-southeast-1) Doubao video channels.
+	Region string `json:"region,omitempty"`
 }
 
 // BindsTaskPlugin reports whether the channel is bound to the task plugin,

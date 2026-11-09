@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Asset and channel regions do not match": "Khu vực của tài nguyên và kênh không khớp",
+    "Video region": "Khu vực video",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

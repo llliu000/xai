@@ -59,6 +59,10 @@ export function ChannelAssetSettings(props: {
     value: item.value,
     label: t(item.label),
   }))
+  const regions = [
+    { value: 'cn-beijing', label: t('Domestic channel') },
+    { value: 'ap-southeast-1', label: t('Overseas channel') },
+  ]
 
   return (
     <SideDrawerSection>
@@ -72,6 +76,37 @@ export function ChannelAssetSettings(props: {
         className='border-border/60 bg-muted/10 rounded-lg border p-4 disabled:opacity-60'
       >
         <FieldGroup>
+          <FormField
+            control={form.control}
+            name='region'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('Video region')}</FormLabel>
+                <Select
+                  disabled={props.disabled}
+                  value={field.value || 'cn-beijing'}
+                  items={regions}
+                  onValueChange={field.onChange}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent alignItemWithTrigger={false}>
+                    <SelectGroup>
+                      {regions.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           <FormField
             control={form.control}
             name='category'

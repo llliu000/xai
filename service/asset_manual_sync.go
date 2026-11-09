@@ -36,7 +36,7 @@ func SyncAssetsToChannel(ctx context.Context, channelID int) (*model.SystemTask,
 		}
 		return nil, err
 	}
-	if channel.GetSetting().TaskPluginKey != "doubao" && channel.GetSetting().Category == "" {
+	if channel.GetSetting().TaskPluginKey != "doubao" || channel.GetSetting().Category == "" {
 		return nil, common.NewMessage("Asset synchronization requires a DoubaoVideo channel")
 	}
 
@@ -207,11 +207,13 @@ func prepareChannelAssetMappings(db *gorm.DB, payload assetSyncPreparePayload) (
 	humanGroup := db.Model(&model.AssetGroup{}).Select("1").
 		Where("asset_groups.id = assets.group_id").
 		Where("group_type = ?", "LivenessFace")
-	err := db.Select("id", "user_id").
+	region := model.NormalizeAssetRegion(channel.GetSetting().Region)
+	err := db.Select("id", "user_id", "region").
 		Where("create_time <= ?", payload.SnapshotAt).
 		Where("status <> ?", model.AssetStatusFailed).
 		Where("NOT EXISTS (?)", humanGroup).
 		Where("NOT EXISTS (?)", existing).
+		Where("region = ?", region).
 		FindInBatches(&assets, assetManualSyncBatchSize, func(tx *gorm.DB, _ int) error {
 			rows := make([]model.AssetChannel, 0, len(assets))
 			for _, asset := range assets {
@@ -219,6 +221,7 @@ func prepareChannelAssetMappings(db *gorm.DB, payload assetSyncPreparePayload) (
 					Status:    model.AssetStatusPending,
 					ChannelId: payload.ChannelID,
 					UserId:    asset.UserId,
+					Region:    asset.Region,
 					AssetId:   asset.Id,
 					Manual:    true,
 				})

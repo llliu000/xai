@@ -209,6 +209,7 @@ export const channelFormSchema = z
     base_url: z.string().optional(),
     task_plugin_key: z.string().optional(),
     category: z.string().optional(),
+    region: z.enum(['cn-beijing', 'ap-southeast-1']).optional(),
     category_setting: z
       .string()
       .optional()
@@ -441,6 +442,7 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   base_url: '',
   task_plugin_key: '',
   category: '',
+  region: 'cn-beijing',
   category_setting: '{}',
   task_extend_plugin_keys: [],
   key: '',
@@ -514,6 +516,7 @@ export function transformChannelToFormDefaults(
   let extraSettings = {
     task_plugin_key: '',
     category: '',
+    region: CHANNEL_FORM_DEFAULT_VALUES.region,
     category_setting: '{}',
     task_extend_plugin_keys: [] as string[],
     force_format: false,
@@ -538,6 +541,7 @@ export function transformChannelToFormDefaults(
       extraSettings = {
         task_plugin_key: parsed.task_plugin_key || '',
         category: parsed.category || '',
+        region: parsed.region || 'cn-beijing',
         category_setting: parsed.category_setting || '{}',
         task_extend_plugin_keys: readTaskExtendPluginKeys(channel.type, parsed),
         force_format: parsed.force_format || false,
@@ -699,6 +703,7 @@ export function buildSettingJSON(formData: ChannelFormValues): string {
     formData.type === CHANNEL_TYPE_TASK_PLUGIN &&
     formData.task_plugin_key === 'doubao'
   ) {
+    settingObj.region = formData.region || 'cn-beijing'
     settingObj.category = formData.category || ''
     settingObj.category_setting = JSON.stringify(
       JSON.parse(formData.category_setting?.trim() || '{}')

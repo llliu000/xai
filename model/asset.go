@@ -8,6 +8,9 @@ import (
 )
 
 const (
+	AssetRegionDomestic = "cn-beijing"
+	AssetRegionOverseas = "ap-southeast-1"
+
 	AssetStatusPending    = "Pending"
 	AssetStatusProcessing = "Processing"
 	AssetStatusActive     = "Active"
@@ -18,6 +21,7 @@ const (
 // 本地分组用于素材分类，上游分组由 AssetGroupChannel 按渠道统一管理。
 type AssetGroup struct {
 	Id          string    `json:"id" gorm:"type:varchar(191);primaryKey"`
+	Region      string    `json:"region" gorm:"type:varchar(32);not null;default:cn-beijing;index"`
 	UserId      int       `json:"user_id" gorm:"not null;index"`
 	Name        string    `json:"name" gorm:"type:varchar(64);not null;index"`
 	Description string    `json:"description" gorm:"type:varchar(300)"`
@@ -32,6 +36,7 @@ type AssetGroup struct {
 // 生成任务仍需检查选中渠道上的全部素材映射，不能只依赖此汇总状态。
 type Asset struct {
 	Id          string                                   `json:"id" gorm:"type:varchar(191);primaryKey"`
+	Region      string                                   `json:"region" gorm:"type:varchar(32);not null;default:cn-beijing;index"`
 	UserId      int                                      `json:"user_id" gorm:"not null;index"`
 	GroupId     string                                   `json:"group_id" gorm:"type:varchar(191);not null;index"`
 	URL         string                                   `json:"url" gorm:"type:text;not null"` // 持久原始地址，不保存上游详情返回的临时 URL。
@@ -49,6 +54,7 @@ type Asset struct {
 // 同一渠道的密钥必须属于相同账号和项目；更换账号或项目应使用新渠道。
 type AssetGroupChannel struct {
 	Id              int64  `json:"id" gorm:"primaryKey"`
+	Region          string `json:"region" gorm:"type:varchar(32);not null;default:cn-beijing;index"`
 	ChannelId       int    `json:"channel_id" gorm:"not null;index;uniqueIndex:uk_asset_group_channel"`
 	GroupId         string `json:"group_id" gorm:"type:varchar(191);not null;uniqueIndex:uk_asset_group_channel"`
 	UpstreamGroupId string `json:"upstream_group_id" gorm:"type:varchar(191);index"`
@@ -62,6 +68,7 @@ type AssetGroupChannel struct {
 // 上游分组通过 ChannelId 对应的 AssetGroupChannel 获取。
 type AssetChannel struct {
 	Id              int64           `json:"id" gorm:"primaryKey;index:idx_asset_channel_manual_status_poll,priority:4"`
+	Region          string          `json:"region" gorm:"type:varchar(32);not null;default:cn-beijing;index"`
 	UserId          int             `json:"user_id" gorm:"not null;index"`
 	AssetId         string          `json:"asset_id" gorm:"type:varchar(191);not null;uniqueIndex:uk_asset_channel,priority:1"`
 	ChannelId       int             `json:"channel_id" gorm:"not null;index;uniqueIndex:uk_asset_channel,priority:2"`
@@ -75,6 +82,13 @@ type AssetChannel struct {
 	UpdateTime      int64           `json:"update_time" gorm:"autoUpdateTime"`
 
 	Asset Asset `gorm:"foreignKey:AssetId;references:Id"`
+}
+
+func NormalizeAssetRegion(region string) string {
+	if region == "" {
+		return AssetRegionDomestic
+	}
+	return region
 }
 
 func GetUpstreamAssetID(channelID int, assetID string) (string, error) {

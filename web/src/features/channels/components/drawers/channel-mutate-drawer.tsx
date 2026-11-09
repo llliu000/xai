@@ -291,6 +291,7 @@ const SENSITIVE_FORM_FIELDS = [
   'settings',
   'setting',
   'category',
+  'region',
   'category_setting',
   'advanced_custom',
   'is_enterprise_account',

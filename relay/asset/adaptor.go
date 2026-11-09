@@ -1,8 +1,6 @@
 package asset
 
 import (
-	"encoding/json"
-
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
@@ -39,11 +37,12 @@ func GetAdaptor(ch *model.Channel) (Adaptor, error) {
 	switch setting.Category {
 	case CategoryVolc:
 		var adaptor volc.Adaptor
-		err := json.Unmarshal([]byte(setting.CategorySetting), &adaptor)
+		err := common.UnmarshalJsonStr(setting.CategorySetting, &adaptor)
+		adaptor.Region = model.NormalizeAssetRegion(setting.Region)
 		return &adaptor, err
 	case CategoryVolcKey:
 		var adaptor volc_key.Adaptor
-		if err := json.Unmarshal([]byte(setting.CategorySetting), &adaptor); err != nil {
+		if err := common.UnmarshalJsonStr(setting.CategorySetting, &adaptor); err != nil {
 			return nil, err
 		}
 		if ch.BaseURL != nil {

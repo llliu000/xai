@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Asset and channel regions do not match": "素材とチャネルのリージョンが一致しません",
+    "Video region": "動画のリージョン",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Asset and channel regions do not match": "Les régions de la ressource et du canal ne correspondent pas",
+    "Video region": "Région vidéo",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

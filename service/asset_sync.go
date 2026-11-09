@@ -273,7 +273,8 @@ func uploadAssetChannel(db *gorm.DB, row *model.AssetChannel, adaptor assetrelay
 
 func upstreamAssetSyncGroup(db *gorm.DB, adaptor assetrelay.Adaptor, channelID int, localGroupID string) (string, error) {
 	var group model.AssetGroup
-	if err := db.Select("id", "group_type").First(&group, "id = ?", localGroupID).Error; err != nil {
+	if err := db.Select("id", "group_type", "region").
+		First(&group, "id = ?", localGroupID).Error; err != nil {
 		return "", err
 	}
 	groupID := ""
@@ -297,7 +298,7 @@ func upstreamAssetSyncGroup(db *gorm.DB, adaptor assetrelay.Adaptor, channelID i
 	if created == nil || created.Id == "" {
 		return "", errors.New("empty upstream group response")
 	}
-	mapping = model.AssetGroupChannel{ChannelId: channelID, UpstreamGroupId: created.Id}
+	mapping = model.AssetGroupChannel{ChannelId: channelID, UpstreamGroupId: created.Id, Region: group.Region}
 	if err = db.Create(&mapping).Error; err != nil {
 		return "", err
 	}
@@ -373,6 +374,7 @@ func refreshAssetSyncStatus(tx *gorm.DB, assetID string, acError any) error {
 		}
 	}
 	return tx.Model(&model.Asset{}).Where("id = ?", assetID).
-		Where("status <> ?", model.AssetStatusActive).Where("status <> ?", status).
+		Where("status <> ?", model.AssetStatusActive).
+		Where("status <> ?", status).
 		Updates(updates).Error
 }
