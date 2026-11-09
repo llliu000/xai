@@ -218,8 +218,7 @@ func CreateAsset(ctx *gin.Context, req *dto.CreateAssetRequest) (*dto.CreateAsse
 		}
 		for _, channel := range channels {
 			setting := channel.GetSetting()
-			if setting.TaskPluginKey == "doubao" && setting.Category != "" &&
-				model.NormalizeAssetRegion(setting.Region) == region {
+			if setting.TaskPluginKey == "doubao" && model.NormalizeAssetRegion(setting.Region) == region {
 				chs = append(chs, channel)
 			}
 		}

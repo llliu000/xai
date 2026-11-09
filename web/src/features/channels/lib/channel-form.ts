@@ -441,7 +441,7 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   type: 1,
   base_url: '',
   task_plugin_key: '',
-  category: '',
+  category: 'mock',
   region: 'cn-beijing',
   category_setting: '{}',
   task_extend_plugin_keys: [],
@@ -515,7 +515,7 @@ export function transformChannelToFormDefaults(
   // Parse channel extra settings from setting field
   let extraSettings = {
     task_plugin_key: '',
-    category: '',
+    category: CHANNEL_FORM_DEFAULT_VALUES.category,
     region: CHANNEL_FORM_DEFAULT_VALUES.region,
     category_setting: '{}',
     task_extend_plugin_keys: [] as string[],
@@ -540,7 +540,7 @@ export function transformChannelToFormDefaults(
       )
       extraSettings = {
         task_plugin_key: parsed.task_plugin_key || '',
-        category: parsed.category || '',
+        category: parsed.category || CHANNEL_FORM_DEFAULT_VALUES.category,
         region: parsed.region || 'cn-beijing',
         category_setting: parsed.category_setting || '{}',
         task_extend_plugin_keys: readTaskExtendPluginKeys(channel.type, parsed),
@@ -704,7 +704,8 @@ export function buildSettingJSON(formData: ChannelFormValues): string {
     formData.task_plugin_key === 'doubao'
   ) {
     settingObj.region = formData.region || 'cn-beijing'
-    settingObj.category = formData.category || ''
+    settingObj.category =
+      formData.category || CHANNEL_FORM_DEFAULT_VALUES.category
     settingObj.category_setting = JSON.stringify(
       JSON.parse(formData.category_setting?.trim() || '{}')
     )

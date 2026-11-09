@@ -73,7 +73,7 @@ type AssetChannel struct {
 	AssetId         string          `json:"asset_id" gorm:"type:varchar(191);not null;uniqueIndex:uk_asset_channel,priority:1"`
 	ChannelId       int             `json:"channel_id" gorm:"not null;index;uniqueIndex:uk_asset_channel,priority:2"`
 	Manual          bool            `json:"manual" gorm:"index:idx_asset_channel_manual_status_poll,priority:1"`                                                                          // true 为手动补同步，false 为上传时自动同步；创建后保持不变。
-	UpstreamAssetId string          `json:"upstream_asset_id" gorm:"type:varchar(191);index"`                                                                                             // 上传成功前为空；获得 ID 不代表审核通过。
+	UpstreamAssetId string          `json:"upstream_asset_id" gorm:"type:varchar(1000);index"`                                                                                            // 上传成功前为空；获得 ID 不代表审核通过。
 	Status          string          `json:"status" gorm:"type:varchar(50);not null;index:idx_asset_channel_status_poll,priority:1;index:idx_asset_channel_manual_status_poll,priority:2"` // Pending 为本地待上传，其余状态对应上游结果。
 	Error           *datatypes.JSON `json:"error" gorm:"type:jsonb"`                                                                                                                      // 错误信息
 	RetryCount      int             `json:"retry_count" gorm:"not null"`                                                                                                                  // 同步请求连续失败次数，成功后清零。

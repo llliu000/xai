@@ -4,16 +4,13 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/relay/asset/mock"
 	"github.com/QuantumNous/new-api/relay/asset/volc"
 	"github.com/QuantumNous/new-api/relay/asset/volc_key"
 )
 
-var (
-	UpstreamAssetGroupName = "6666-xxxfkafjlasd-123"
-	GroupType              = "AIGC"
-)
-
 const (
+	CategoryMock    = "mock"
 	CategoryVolc    = "volc"
 	CategoryVolcKey = "volc_key"
 )
@@ -35,6 +32,8 @@ func GetAdaptor(ch *model.Channel) (Adaptor, error) {
 		setting.CategorySetting = "{}"
 	}
 	switch setting.Category {
+	case CategoryMock:
+		return &mock.Adaptor{}, nil
 	case CategoryVolc:
 		var adaptor volc.Adaptor
 		err := common.UnmarshalJsonStr(setting.CategorySetting, &adaptor)
@@ -56,6 +55,10 @@ func GetAdaptor(ch *model.Channel) (Adaptor, error) {
 
 func CategoryOptions() []map[string]string {
 	return []map[string]string{
+		{
+			"value": CategoryMock,
+			"label": "Mock",
+		},
 		{
 			"value": CategoryVolc,
 			"label": "AK/SK",
