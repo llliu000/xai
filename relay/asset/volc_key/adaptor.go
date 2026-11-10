@@ -31,12 +31,12 @@ type Adaptor struct {
 	HTTPClient  *http.Client `json:"-"`
 	ApiKey      string       `json:"api_key"`
 	BaseURL     string       `json:"base_url"`
+	Path        string       `json:"path"`
 	ProjectName string       `json:"project_name"`
-	Moderation  string       `json:"moderation"`
 }
 
 func (a *Adaptor) ReviewSkip() bool {
-	return a.Moderation == "Skip"
+	return false
 }
 
 func (a *Adaptor) CreateAssetGroup(req *dto.CreateAssetGroupRequest) (*dto.CreateAssetGroupResponse, error) {
@@ -100,7 +100,10 @@ func (a *Adaptor) doCall(action string, request, response any) error {
 		return err
 	}
 	reader := bytes.NewReader(body)
-	baseUrl := fmt.Sprintf("%s/?Action=%s&Version=2024-01-01", a.BaseURL, action)
+	if a.Path == "" {
+		a.Path = "/"
+	}
+	baseUrl := fmt.Sprintf("%s%s?Action=%s&Version=2024-01-01", a.BaseURL, a.Path, action)
 	httpReq, err := http.NewRequest(http.MethodPost, baseUrl, reader)
 	if err != nil {
 		return err

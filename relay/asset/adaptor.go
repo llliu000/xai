@@ -41,14 +41,12 @@ func GetAdaptor(ch *model.Channel) (Adaptor, error) {
 		return &adaptor, err
 	case CategoryVolcKey:
 		var adaptor volc_key.Adaptor
-		if err := common.UnmarshalJsonStr(setting.CategorySetting, &adaptor); err != nil {
-			return nil, err
-		}
+		adaptor.ApiKey = ch.Key
 		if ch.BaseURL != nil {
 			adaptor.BaseURL = *ch.BaseURL
 		}
-		adaptor.ApiKey = ch.Key
-		return &adaptor, nil
+		err := common.UnmarshalJsonStr(setting.CategorySetting, &adaptor)
+		return &adaptor, err
 	}
 	return nil, common.NewMessage("Asset library type must be volc or volc_key")
 }
