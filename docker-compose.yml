@@ -16,10 +16,7 @@ version: '3.4' # For compatibility with older Docker versions
 
 services:
   new-api:
-    build:
-      dockerfile: Dockerfile
-      context: .
-    image: xzone/new-api:latest
+    image: xzone/new-api:1.0.0
     container_name: new-api
     restart: always
     command: --log-dir /app/logs
@@ -36,6 +33,7 @@ services:
 #      - LOG_SQL_CLICKHOUSE_TTL_DAYS=0 # OPTIONAL: ClickHouse log retention days. Unset or 0 disables automatic deletion; set to e.g. 30 to keep 30 days
       - REDIS_CONN_STRING=redis://:123456@redis:6379 # ⚠️ IMPORTANT: Change the password in production!
       - TZ=Asia/Shanghai
+      - VERSION=v1.0.0-rc.49
       - ERROR_LOG_ENABLED=true # 是否启用错误日志记录 (Whether to enable error log recording)
       - BATCH_UPDATE_ENABLED=true  # 是否启用批量更新 (Whether to enable batch update)
       - NODE_NAME=new-api-node-1  # 节点名称，用于审计日志中标识节点身份；多节点/容器部署时建议设置 (Node name used in audit logs; recommended when running multiple instances or in containers)
