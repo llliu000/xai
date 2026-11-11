@@ -16,7 +16,7 @@ version: '3.4' # For compatibility with older Docker versions
 
 services:
   new-api:
-    image: xzone/new-api:1.0.0
+    image: xai/new-api:1.0.0
     container_name: new-api
     restart: always
     command: --log-dir /app/logs
@@ -26,7 +26,7 @@ services:
       - ./data:/data
       - ./logs:/app/logs
     environment:
-      - SQL_DSN=postgresql://xzone-new-api:xzone-qwe123@postgres:5432/xzone # ⚠️ IMPORTANT: Change the password in production!
+      - SQL_DSN=postgresql://xai-new-api:xai-qwe123@postgres:5432/xai # ⚠️ IMPORTANT: Change the password in production!
 #      - SQL_DSN=root:123456@tcp(mysql:3306)/new-api  # Point to the mysql service, uncomment if using MySQL
 #      - LOG_SQL_DSN=postgresql://root:123456@postgres:5432/new-api-log # OPTIONAL: If you want a separate database for logging, uncomment and set this
 #      - LOG_SQL_DSN=clickhouse://default:123456@clickhouse:9000/new_api_logs # OPTIONAL: Use ClickHouse for logs only; also uncomment clickhouse in depends_on and the clickhouse service below
@@ -80,9 +80,9 @@ services:
     container_name: postgres
     restart: always
     environment:
-      POSTGRES_USER: xzone-new-api
-      POSTGRES_PASSWORD: xzone-qwe123  # ⚠️ IMPORTANT: Change this password in production!
-      POSTGRES_DB: xzone
+      POSTGRES_USER: xai-new-api
+      POSTGRES_PASSWORD: xai-qwe123  # ⚠️ IMPORTANT: Change this password in production!
+      POSTGRES_DB: xai
     volumes:
       - pg_data:/var/lib/postgresql/data
     networks:
