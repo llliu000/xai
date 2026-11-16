@@ -106,8 +106,8 @@ type ArkGetTaskResponse struct {
 
 type ArkOutput struct {
 	VideoURL     string `json:"video_url"`
-	LastFrameURL string `json:"last_frame_url"`
-	FileURL      string `json:"file_url"`
+	LastFrameURL string `json:"last_frame_url,omitempty"`
+	FileURL      string `json:"file_url,omitempty"`
 }
 
 type ArkError struct {
