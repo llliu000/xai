@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewVideoServer() error {
+func NewVideoServer() *http.Server {
 	engine := gin.New()
 	engine.Use(gin.Recovery())
 	engine.ContextWithFallback = true
@@ -46,6 +46,8 @@ func NewVideoServer() error {
 		wanRouter.GET("/tasks/:task_id", wanHandler.GetTask)
 		wanRouter.POST("/services/aigc/video-generation/video-synthesis", wanHandler.CreateTask)
 	}
-	err := http.ListenAndServe(":8080", engine)
-	return err
+	return &http.Server{
+		Addr:    "127.0.0.1:8080",
+		Handler: engine,
+	}
 }

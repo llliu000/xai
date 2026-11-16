@@ -34,6 +34,7 @@ import (
 	"github.com/QuantumNous/new-api/service/authz"
 	_ "github.com/QuantumNous/new-api/setting/performance_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"github.com/QuantumNous/new-api/video"
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
@@ -237,6 +238,13 @@ func main() {
 		port = strconv.Itoa(*common.Port)
 	}
 
+	videoServer := video.NewVideoServer()
+	go func() {
+		if err = videoServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			common.FatalLog(common.LogText("video HTTP server stopped unexpectedly: %s", err.Error()))
+		}
+	}()
+
 	srv := &http.Server{
 		Addr:    net.JoinHostPort(host, port),
 		Handler: server,
@@ -261,6 +269,9 @@ func main() {
 	shutdownTimeout := time.Duration(common.GetEnvOrDefault("SHUTDOWN_TIMEOUT_SECONDS", 120)) * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
+	if err := videoServer.Shutdown(ctx); err != nil {
+		common.SysError(common.LogText("video HTTP server forced to shutdown: %v", err))
+	}
 	if err := srv.Shutdown(ctx); err != nil {
 		common.SysError(common.LogText("server forced to shutdown: %v", err))
 	}
