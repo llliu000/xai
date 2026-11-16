@@ -239,8 +239,13 @@ func main() {
 	}
 
 	videoServer := video.NewVideoServer()
+	videoListener, err := net.Listen("tcp", videoServer.Addr)
+	if err != nil {
+		common.FatalLog(common.LogText("failed to start video HTTP server: %s", err.Error()))
+		return
+	}
 	go func() {
-		if err = videoServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := videoServer.Serve(videoListener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			common.FatalLog(common.LogText("video HTTP server stopped unexpectedly: %s", err.Error()))
 		}
 	}()
