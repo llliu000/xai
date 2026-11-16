@@ -47,7 +47,7 @@ func NewVideoServer() *http.Server {
 		wanRouter.POST("/services/aigc/video-generation/video-synthesis", wanHandler.CreateTask)
 	}
 	return &http.Server{
-		Addr:    "127.0.0.1:8080",
+		Addr:    "127.0.0.1:5500",
 		Handler: engine,
 	}
 }
