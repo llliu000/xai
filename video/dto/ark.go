@@ -1,35 +1,57 @@
 package dto
 
+type ArkContentType string
+
+const (
+	ArkContentTypeText      ArkContentType = "text"
+	ArkContentTypeImage     ArkContentType = "image_url"
+	ArkContentTypeAudio     ArkContentType = "audio_url"
+	ArkContentTypeVideo     ArkContentType = "video_url"
+	ArkContentTypeDraftTask ArkContentType = "draft_task"
+)
+
+type ArkTaskStatus string
+
+const (
+	ArkTaskStatusSucceeded ArkTaskStatus = "succeeded"
+	ArkTaskStatusCancelled ArkTaskStatus = "cancelled"
+	ArkTaskStatusFailed    ArkTaskStatus = "failed"
+	ArkTaskStatusRunning   ArkTaskStatus = "running"
+	ArkTaskStatusQueued    ArkTaskStatus = "queued"
+	ArkTaskStatusExpired   ArkTaskStatus = "expired"
+)
+
 type ArkCreateTaskRequest struct {
-	Model                 string       `json:"model"`
-	Content               []ArkContent `json:"content"`
-	Resolution            *string      `json:"resolution,omitempty"`
-	Ratio                 *string      `json:"ratio,omitempty"`
-	Duration              *int         `json:"duration,omitempty"`
-	Frames                *int         `json:"frames,omitempty"`
-	GenerateAudio         *bool        `json:"generate_audio,omitempty"`
-	Watermark             *bool        `json:"watermark,omitempty"`
-	OutputFormat          *string      `json:"output_format,omitempty"`
-	Seed                  *int         `json:"seed,omitempty"`
-	CameraFixed           *bool        `json:"camera_fixed,omitempty"`
-	ReturnLastFrame       *bool        `json:"return_last_frame,omitempty"`
-	Draft                 *bool        `json:"draft,omitempty"`
-	ServiceTier           *string      `json:"service_tier,omitempty"`
-	CallbackURL           *string      `json:"callback_url,omitempty"`
-	ExecutionExpiresAfter *int         `json:"execution_expires_after,omitempty"`
-	Priority              *int         `json:"priority,omitempty"`
-	SafetyIdentifier      *string      `json:"safety_identifier,omitempty"`
-	Tools                 []ArkTool    `json:"tools,omitempty"`
-	OmniReferenceTaskType *string      `json:"omni_reference_task_type,omitempty"`
+	Model                 string        `json:"model"`
+	Content               []*ArkContent `json:"content"`
+	SafetyIdentifier      *string       `json:"safety_identifier,omitempty"`
+	CallbackURL           *string       `json:"callback_url,omitempty"`
+	ReturnLastFrame       *bool         `json:"return_last_frame,omitempty"`
+	ServiceTier           *string       `json:"service_tier,omitempty"`
+	ExecutionExpiresAfter *int64        `json:"execution_expires_after,omitempty"`
+	Priority              *int32        `json:"priority,omitempty"`
+	GenerateAudio         *bool         `json:"generate_audio,omitempty"`
+	Draft                 *bool         `json:"draft,omitempty"`
+	CameraFixed           *bool         `json:"camera_fixed,omitempty"`
+	Watermark             *bool         `json:"watermark,omitempty"`
+	Seed                  *int64        `json:"seed,omitempty"`
+	Resolution            *string       `json:"resolution,omitempty"`
+	Ratio                 *string       `json:"ratio,omitempty"`
+	OutputFormat          *string       `json:"output_format,omitempty"`
+	OmniReferenceTaskType *string       `json:"omni_reference_task_type,omitempty"`
+	Duration              *int64        `json:"duration,omitempty"`
+	Frames                *int64        `json:"frames,omitempty"`
+	Tools                 []*ArkTool    `json:"tools,omitempty"`
 }
+
 type ArkContent struct {
-	Type      string        `json:"type"`
-	Text      *string       `json:"text,omitempty"`
-	ImageURL  *ArkMedia     `json:"image_url,omitempty"`
-	VideoURL  *ArkMedia     `json:"video_url,omitempty"`
-	AudioURL  *ArkMedia     `json:"audio_url,omitempty"`
-	DraftTask *ArkDraftTask `json:"draft_task,omitempty"`
-	Role      *string       `json:"role,omitempty"`
+	Type      ArkContentType `json:"type"`
+	Text      *string        `json:"text,omitempty"`
+	ImageURL  *ArkMedia      `json:"image_url,omitempty"`
+	AudioURL  *ArkMedia      `json:"audio_url,omitempty"`
+	VideoURL  *ArkMedia      `json:"video_url,omitempty"`
+	Role      *string        `json:"role,omitempty"`
+	DraftTask *ArkDraftTask  `json:"draft_task,omitempty"`
 }
 
 type ArkMedia struct {
@@ -45,41 +67,47 @@ type ArkTool struct {
 }
 
 type ArkCreateTaskResponse struct {
-	ID string `json:"id"`
+	ID               string  `json:"id"`
+	SafetyIdentifier *string `json:"safety_identifier,omitempty"`
 }
 
 type ArkGetTaskRequest struct {
-	TaskId string `uri:"task_id"`
+	TaskID string `uri:"task_id" json:"id"`
 }
 
 type ArkGetTaskResponse struct {
-	ID                    string     `json:"id"`
-	Model                 string     `json:"model"`
-	Status                string     `json:"status"`
-	Content               *ArkOutput `json:"content,omitempty"`
-	CreatedAt             int64      `json:"created_at"`
-	Draft                 *bool      `json:"draft,omitempty"`
-	Duration              *int       `json:"duration,omitempty"`
-	Error                 *ArkError  `json:"error,omitempty"`
-	ExecutionExpiresAfter *int       `json:"execution_expires_after,omitempty"`
-	Frames                *int       `json:"frames,omitempty"`
-	FramesPerSecond       *int       `json:"framespersecond,omitempty"`
-	GenerateAudio         *bool      `json:"generate_audio,omitempty"`
-	OutputFormat          *string    `json:"output_format,omitempty"`
-	Priority              *int       `json:"priority,omitempty"`
-	Ratio                 *string    `json:"ratio,omitempty"`
-	Resolution            *string    `json:"resolution,omitempty"`
-	SafetyIdentifier      *string    `json:"safety_identifier,omitempty"`
-	Seed                  *int       `json:"seed,omitempty"`
-	ServiceTier           *string    `json:"service_tier,omitempty"`
-	Tools                 []ArkTool  `json:"tools,omitempty"`
-	UpdatedAt             int64      `json:"updated_at"`
-	Usage                 *ArkUsage  `json:"usage,omitempty"`
+	ID                    string        `json:"id"`
+	Model                 string        `json:"model"`
+	SafetyIdentifier      *string       `json:"safety_identifier,omitempty"`
+	Status                ArkTaskStatus `json:"status"`
+	Error                 *ArkError     `json:"error,omitempty"`
+	Content               ArkOutput     `json:"content"`
+	Usage                 ArkUsage      `json:"usage"`
+	SubdivisionLevel      *string       `json:"subdivisionlevel,omitempty"`
+	FileFormat            *string       `json:"fileformat,omitempty"`
+	Frames                *int64        `json:"frames"`
+	FramesPerSecond       *int64        `json:"framespersecond"`
+	Resolution            *string       `json:"resolution,omitempty"`
+	Ratio                 *string       `json:"ratio,omitempty"`
+	OutputFormat          *string       `json:"output_format,omitempty"`
+	Duration              *int64        `json:"duration,omitempty"`
+	CreatedAt             int64         `json:"created_at"`
+	UpdatedAt             int64         `json:"updated_at"`
+	Seed                  *int64        `json:"seed,omitempty"`
+	RevisedPrompt         *string       `json:"revised_prompt,omitempty"`
+	ServiceTier           *string       `json:"service_tier,omitempty"`
+	ExecutionExpiresAfter *int64        `json:"execution_expires_after,omitempty"`
+	Priority              *int32        `json:"priority,omitempty"`
+	GenerateAudio         *bool         `json:"generate_audio,omitempty"`
+	Draft                 *bool         `json:"draft,omitempty"`
+	DraftTaskID           *string       `json:"draft_task_id,omitempty"`
+	Tools                 []*ArkTool    `json:"tools,omitempty"`
 }
 
 type ArkOutput struct {
-	LastFrameURL *string `json:"last_frame_url,omitempty"`
-	VideoURL     *string `json:"video_url,omitempty"`
+	VideoURL     string `json:"video_url"`
+	LastFrameURL string `json:"last_frame_url"`
+	FileURL      string `json:"file_url"`
 }
 
 type ArkError struct {
