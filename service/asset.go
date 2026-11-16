@@ -226,6 +226,7 @@ func CreateAsset(ctx *gin.Context, req *dto.CreateAssetRequest) (*dto.CreateAsse
 	if len(chs) == 0 {
 		return nil, errors.New("no targets found")
 	}
+	// TODO 上传云存储进行处理
 
 	asset := model.Asset{
 		ProjectName: normalizeAssetProjectName(stringValue(req.ProjectName)),
