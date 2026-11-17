@@ -8,7 +8,7 @@ import (
 )
 
 type Wan struct {
-	registry *channel.Registry[wan.Adaptor]
+	registry *channel.Registry[wan.Adapter]
 }
 
 func NewWan() *Wan {
@@ -16,17 +16,17 @@ func NewWan() *Wan {
 }
 
 func (w *Wan) CreateTask(ctx *gin.Context, req dto.WanCreateTaskRequest) (*dto.WanCreateTaskResponse, error) {
-	adaptor, err := w.registry.GetAdaptor(ctx)
+	adapter, err := w.registry.GetAdapter(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return adaptor.CreateTask(ctx, req)
+	return adapter.CreateTask(ctx, req)
 }
 
 func (w *Wan) GetTask(ctx *gin.Context, req dto.WanGetTaskRequest) (*dto.WanGetTaskResponse, error) {
-	adaptor, err := w.registry.GetAdaptor(ctx)
+	adapter, err := w.registry.GetAdapter(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return adaptor.GetTask(ctx, req)
+	return adapter.GetTask(ctx, req)
 }

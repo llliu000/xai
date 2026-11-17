@@ -6,17 +6,17 @@ import (
 	"github.com/QuantumNous/new-api/video/dto"
 )
 
-type Adaptor struct {
+type Adapter struct {
 }
 
-func (a *Adaptor) Name() string {
+func (a *Adapter) Name() string {
 	return "vidu"
 }
 
-func (a *Adaptor) CreateTask(ctx context.Context, req dto.ArkCreateTaskRequest) (*dto.ArkCreateTaskResponse, error) {
+func (a *Adapter) CreateTask(ctx context.Context, req dto.ArkCreateTaskRequest) (*dto.ArkCreateTaskResponse, error) {
 	return nil, nil
 }
 
-func (a *Adaptor) GetTask(ctx context.Context, req dto.ArkGetTaskRequest) (*dto.ArkGetTaskResponse, error) {
+func (a *Adapter) GetTask(ctx context.Context, req dto.ArkGetTaskRequest) (*dto.ArkGetTaskResponse, error) {
 	return nil, nil
 }

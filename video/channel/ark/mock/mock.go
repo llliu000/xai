@@ -9,17 +9,17 @@ import (
 	"github.com/google/uuid"
 )
 
-type Adaptor struct{}
+type Adapter struct{}
 
-func (a *Adaptor) Name() string {
+func (a *Adapter) Name() string {
 	return "mock"
 }
 
-func (a *Adaptor) CreateTask(ctx context.Context, req dto.ArkCreateTaskRequest) (*dto.ArkCreateTaskResponse, error) {
+func (a *Adapter) CreateTask(ctx context.Context, req dto.ArkCreateTaskRequest) (*dto.ArkCreateTaskResponse, error) {
 	return &dto.ArkCreateTaskResponse{ID: uuid.NewString()}, nil
 }
 
-func (a *Adaptor) GetTask(ctx context.Context, req dto.ArkGetTaskRequest) (*dto.ArkGetTaskResponse, error) {
+func (a *Adapter) GetTask(ctx context.Context, req dto.ArkGetTaskRequest) (*dto.ArkGetTaskResponse, error) {
 	return &dto.ArkGetTaskResponse{
 		ID:     req.TaskID,
 		Model:  "mock",
@@ -44,30 +44,30 @@ func (a *Adaptor) GetTask(ctx context.Context, req dto.ArkGetTaskRequest) (*dto.
 	}, nil
 }
 
-func (a *Adaptor) CreateAssetGroup(ctx context.Context, req *dto.CreateAssetGroupRequest) (*dto.CreateAssetGroupResponse, error) {
+func (a *Adapter) CreateAssetGroup(ctx context.Context, req *dto.CreateAssetGroupRequest) (*dto.CreateAssetGroupResponse, error) {
 	return &dto.CreateAssetGroupResponse{Id: uuid.NewString()}, nil
 }
 
-func (a *Adaptor) CreateAssets(ctx context.Context, req *dto.CreateAssetRequest) (*dto.CreateAssetResponse, error) {
+func (a *Adapter) CreateAssets(ctx context.Context, req *dto.CreateAssetRequest) (*dto.CreateAssetResponse, error) {
 	return &dto.CreateAssetResponse{Id: req.URL}, nil
 }
 
-func (a *Adaptor) GetAsset(ctx context.Context, req *dto.GetAssetRequest) (*dto.GetAssetResponse, error) {
+func (a *Adapter) GetAsset(ctx context.Context, req *dto.GetAssetRequest) (*dto.GetAssetResponse, error) {
 	return &dto.GetAssetResponse{Status: "Active"}, nil
 }
 
-func (a *Adaptor) ListAssets(ctx context.Context, req *dto.ListAssetsRequest) (*dto.ListAssetsResponse, error) {
+func (a *Adapter) ListAssets(ctx context.Context, req *dto.ListAssetsRequest) (*dto.ListAssetsResponse, error) {
 	return &dto.ListAssetsResponse{}, nil
 }
 
-func (a *Adaptor) ListAssetGroups(ctx context.Context, req *dto.ListAssetGroupsRequest) (*dto.ListAssetGroupsResponse, error) {
+func (a *Adapter) ListAssetGroups(ctx context.Context, req *dto.ListAssetGroupsRequest) (*dto.ListAssetGroupsResponse, error) {
 	return &dto.ListAssetGroupsResponse{}, nil
 }
 
-func (*Adaptor) CreateVisualValidateSession(ctx context.Context, req *dto.CreateVisualValidateSessionRequest) (*dto.CreateVisualValidateSessionResponse, error) {
+func (*Adapter) CreateVisualValidateSession(ctx context.Context, req *dto.CreateVisualValidateSessionRequest) (*dto.CreateVisualValidateSessionResponse, error) {
 	return nil, errors.New("channel is not supported")
 }
 
-func (*Adaptor) GetVisualValidateResult(ctx context.Context, req *dto.GetVisualValidateResultRequest) (*dto.GetVisualValidateResultResponse, error) {
+func (*Adapter) GetVisualValidateResult(ctx context.Context, req *dto.GetVisualValidateResultRequest) (*dto.GetVisualValidateResultResponse, error) {
 	return nil, errors.New("channel is not supported")
 }

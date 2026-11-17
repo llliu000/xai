@@ -16,19 +16,19 @@ type Registry[T any] struct {
 	mapping map[string]T
 }
 
-func DefaultArkRegistry() *Registry[ark.Adaptor] {
-	return &Registry[ark.Adaptor]{
-		mapping: map[string]ark.Adaptor{
-			common.Mock: &mockArk.Adaptor{},
-			common.Vidu: &vidu.Adaptor{},
+func DefaultArkRegistry() *Registry[ark.Adapter] {
+	return &Registry[ark.Adapter]{
+		mapping: map[string]ark.Adapter{
+			common.Mock: &mockArk.Adapter{},
+			common.Vidu: &vidu.Adapter{},
 		},
 	}
 }
 
-func DefaultWanRegistry() *Registry[wan.Adaptor] {
-	return &Registry[wan.Adaptor]{
-		mapping: map[string]wan.Adaptor{
-			common.Mock: &mockWan.Adaptor{},
+func DefaultWanRegistry() *Registry[wan.Adapter] {
+	return &Registry[wan.Adapter]{
+		mapping: map[string]wan.Adapter{
+			common.Mock: &mockWan.Adapter{},
 		},
 	}
 }
@@ -36,16 +36,16 @@ func DefaultWanRegistry() *Registry[wan.Adaptor] {
 func DefaultArkAssetRegistry() *Registry[ark.Asset] {
 	return &Registry[ark.Asset]{
 		mapping: map[string]ark.Asset{
-			common.Mock: &mockArk.Adaptor{},
+			common.Mock: &mockArk.Adapter{},
 		},
 	}
 }
 
-func (r *Registry[T]) GetAdaptor(ctx context.Context) (T, error) {
+func (r *Registry[T]) GetAdapter(ctx context.Context) (T, error) {
 	channelName := common.GetRelayContext(ctx).ChannelName
-	adaptor, ok := r.mapping[channelName]
+	adapter, ok := r.mapping[channelName]
 	if !ok {
-		return adaptor, errors.New("channel not found")
+		return adapter, errors.New("channel not found")
 	}
-	return adaptor, nil
+	return adapter, nil
 }
