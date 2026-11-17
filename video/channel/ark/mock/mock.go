@@ -44,30 +44,30 @@ func (a *Adaptor) GetTask(ctx context.Context, req dto.ArkGetTaskRequest) (*dto.
 	}, nil
 }
 
-func (a *Adaptor) CreateAssetGroup(req *dto.CreateAssetGroupRequest) (*dto.CreateAssetGroupResponse, error) {
+func (a *Adaptor) CreateAssetGroup(ctx context.Context, req *dto.CreateAssetGroupRequest) (*dto.CreateAssetGroupResponse, error) {
 	return &dto.CreateAssetGroupResponse{Id: uuid.NewString()}, nil
 }
 
-func (a *Adaptor) CreateAssets(req *dto.CreateAssetRequest) (*dto.CreateAssetResponse, error) {
+func (a *Adaptor) CreateAssets(ctx context.Context, req *dto.CreateAssetRequest) (*dto.CreateAssetResponse, error) {
 	return &dto.CreateAssetResponse{Id: req.URL}, nil
 }
 
-func (a *Adaptor) GetAsset(req *dto.GetAssetRequest) (*dto.GetAssetResponse, error) {
+func (a *Adaptor) GetAsset(ctx context.Context, req *dto.GetAssetRequest) (*dto.GetAssetResponse, error) {
 	return &dto.GetAssetResponse{Status: "Active"}, nil
 }
 
-func (a *Adaptor) ListAssets(req *dto.ListAssetsRequest) (*dto.ListAssetsResponse, error) {
+func (a *Adaptor) ListAssets(ctx context.Context, req *dto.ListAssetsRequest) (*dto.ListAssetsResponse, error) {
 	return &dto.ListAssetsResponse{}, nil
 }
 
-func (a *Adaptor) ListAssetGroups(req *dto.ListAssetGroupsRequest) (*dto.ListAssetGroupsResponse, error) {
+func (a *Adaptor) ListAssetGroups(ctx context.Context, req *dto.ListAssetGroupsRequest) (*dto.ListAssetGroupsResponse, error) {
 	return &dto.ListAssetGroupsResponse{}, nil
 }
 
-func (*Adaptor) CreateVisualValidateSession(*dto.CreateVisualValidateSessionRequest) (*dto.CreateVisualValidateSessionResponse, error) {
+func (*Adaptor) CreateVisualValidateSession(ctx context.Context, req *dto.CreateVisualValidateSessionRequest) (*dto.CreateVisualValidateSessionResponse, error) {
 	return nil, errors.New("channel is not supported")
 }
 
-func (*Adaptor) GetVisualValidateResult(*dto.GetVisualValidateResultRequest) (*dto.GetVisualValidateResultResponse, error) {
+func (*Adaptor) GetVisualValidateResult(ctx context.Context, req *dto.GetVisualValidateResultRequest) (*dto.GetVisualValidateResultResponse, error) {
 	return nil, errors.New("channel is not supported")
 }
