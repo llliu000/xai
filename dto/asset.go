@@ -39,7 +39,7 @@ type BaseAssetRequest struct {
 
 type CreateAssetGroupRequest struct {
 	BaseAssetRequest
-	GroupType   string  `json:"GroupType" binding:"required,oneof=AIGC LivenessFace"`
+	GroupType   string  `json:"GroupType" binding:"required,oneof=AIGC"`
 	Name        string  `json:"Name" binding:"required"`
 	Description *string `json:"Description"`
 }

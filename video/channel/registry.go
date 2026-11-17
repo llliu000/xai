@@ -33,6 +33,14 @@ func DefaultWanRegistry() *Registry[wan.Adaptor] {
 	}
 }
 
+func DefaultArkAssetRegistry() *Registry[ark.Asset] {
+	return &Registry[ark.Asset]{
+		mapping: map[string]ark.Asset{
+			common.Mock: &mockArk.Adaptor{},
+		},
+	}
+}
+
 func (r *Registry[T]) GetAdaptor(ctx context.Context) (T, error) {
 	channelName := common.GetRelayContext(ctx).ChannelName
 	adaptor, ok := r.mapping[channelName]

@@ -9,10 +9,14 @@ import (
 
 type Ark struct {
 	registry *channel.Registry[ark.Adaptor]
+	asset    *channel.Registry[ark.Asset]
 }
 
 func NewArk() *Ark {
-	return &Ark{registry: channel.DefaultArkRegistry()}
+	return &Ark{
+		registry: channel.DefaultArkRegistry(),
+		asset:    channel.DefaultArkAssetRegistry(),
+	}
 }
 
 func (a *Ark) CreateTask(ctx *gin.Context, req dto.ArkCreateTaskRequest) (*dto.ArkCreateTaskResponse, error) {
@@ -29,4 +33,60 @@ func (a *Ark) GetTask(ctx *gin.Context, req dto.ArkGetTaskRequest) (*dto.ArkGetT
 		return nil, err
 	}
 	return adaptor.GetTask(ctx, req)
+}
+
+func (a *Ark) CreateAssetGroup(ctx *gin.Context, req *dto.CreateAssetGroupRequest) (*dto.CreateAssetGroupResponse, error) {
+	adaptor, err := a.asset.GetAdaptor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return adaptor.CreateAssetGroup(req)
+}
+
+func (a *Ark) ListAssetGroups(ctx *gin.Context, req *dto.ListAssetGroupsRequest) (*dto.ListAssetGroupsResponse, error) {
+	adaptor, err := a.asset.GetAdaptor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return adaptor.ListAssetGroups(req)
+}
+
+func (a *Ark) CreateAsset(ctx *gin.Context, req *dto.CreateAssetRequest) (*dto.CreateAssetResponse, error) {
+	adaptor, err := a.asset.GetAdaptor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return adaptor.CreateAssets(req)
+}
+
+func (a *Ark) ListAssets(ctx *gin.Context, req *dto.ListAssetsRequest) (*dto.ListAssetsResponse, error) {
+	adaptor, err := a.asset.GetAdaptor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return adaptor.ListAssets(req)
+}
+
+func (a *Ark) GetAsset(ctx *gin.Context, req *dto.GetAssetRequest) (*dto.GetAssetResponse, error) {
+	adaptor, err := a.asset.GetAdaptor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return adaptor.GetAsset(req)
+}
+
+func (a *Ark) CreateVisualValidateSession(ctx *gin.Context, req *dto.CreateVisualValidateSessionRequest) (*dto.CreateVisualValidateSessionResponse, error) {
+	adaptor, err := a.asset.GetAdaptor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return adaptor.CreateVisualValidateSession(req)
+}
+
+func (a *Ark) GetVisualValidateResult(ctx *gin.Context, req *dto.GetVisualValidateResultRequest) (*dto.GetVisualValidateResultResponse, error) {
+	adaptor, err := a.asset.GetAdaptor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return adaptor.GetVisualValidateResult(req)
 }
