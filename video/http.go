@@ -2,7 +2,6 @@ package video
 
 import (
 	"net/http"
-	"slices"
 
 	"github.com/QuantumNous/new-api/video/common"
 	"github.com/QuantumNous/new-api/video/handler"
@@ -22,11 +21,7 @@ func NewVideoServer() *http.Server {
 		}
 		channelName := ctx.Param("channel-name")
 		if channelName == "" {
-			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{})
-			return
-		}
-		if !slices.Contains(common.Channels, channelName) {
-			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{})
+			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "channel name is required"})
 			return
 		}
 		common.SetRelayContext(ctx)

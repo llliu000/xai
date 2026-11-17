@@ -16,8 +16,6 @@ const (
 	Vidu = "vidu"
 )
 
-var Channels = []string{Mock, Vidu}
-
 type RelayContext struct {
 	ChannelName string
 	ApiKey      string
