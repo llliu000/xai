@@ -13,7 +13,7 @@ type Ark struct {
 }
 
 func NewArk() *Ark {
-	return &Ark{arkService: &service.Ark{}}
+	return &Ark{arkService: service.NewArk()}
 }
 
 func (s *Ark) GetTask(ctx *gin.Context) {

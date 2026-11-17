@@ -1,31 +1,32 @@
 package service
 
 import (
-	"errors"
-
+	"github.com/QuantumNous/new-api/video/channel"
 	"github.com/QuantumNous/new-api/video/channel/wan"
-	"github.com/QuantumNous/new-api/video/common"
 	"github.com/QuantumNous/new-api/video/dto"
 	"github.com/gin-gonic/gin"
 )
 
 type Wan struct {
+	registry *channel.Registry[wan.Adaptor]
+}
+
+func NewWan() *Wan {
+	return &Wan{registry: channel.DefaultWanRegistry()}
 }
 
 func (w *Wan) CreateTask(ctx *gin.Context, req dto.WanCreateTaskRequest) (*dto.WanCreateTaskResponse, error) {
-	channelName := common.GetRelayContext(ctx).ChannelName
-	adaptor, ok := wan.Mapping[channelName]
-	if !ok {
-		return nil, errors.New("no adaptor")
+	adaptor, err := w.registry.GetAdaptor(ctx)
+	if err != nil {
+		return nil, err
 	}
 	return adaptor.CreateTask(ctx, req)
 }
 
 func (w *Wan) GetTask(ctx *gin.Context, req dto.WanGetTaskRequest) (*dto.WanGetTaskResponse, error) {
-	channelName := common.GetRelayContext(ctx).ChannelName
-	adaptor, ok := wan.Mapping[channelName]
-	if !ok {
-		return nil, errors.New("no adaptor")
+	adaptor, err := w.registry.GetAdaptor(ctx)
+	if err != nil {
+		return nil, err
 	}
 	return adaptor.GetTask(ctx, req)
 }

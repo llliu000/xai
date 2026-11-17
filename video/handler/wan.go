@@ -13,7 +13,7 @@ type Wan struct {
 }
 
 func NewWan() *Wan {
-	return &Wan{wanService: &service.Wan{}}
+	return &Wan{wanService: service.NewWan()}
 }
 
 func (w *Wan) CreateTask(ctx *gin.Context) {
