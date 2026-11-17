@@ -40,7 +40,7 @@ func (a *Ark) CreateAssetGroup(ctx *gin.Context, req *dto.CreateAssetGroupReques
 	if err != nil {
 		return nil, err
 	}
-	return adaptor.CreateAssetGroup(req)
+	return adaptor.CreateAssetGroup(ctx, req)
 }
 
 func (a *Ark) ListAssetGroups(ctx *gin.Context, req *dto.ListAssetGroupsRequest) (*dto.ListAssetGroupsResponse, error) {
@@ -48,7 +48,7 @@ func (a *Ark) ListAssetGroups(ctx *gin.Context, req *dto.ListAssetGroupsRequest)
 	if err != nil {
 		return nil, err
 	}
-	return adaptor.ListAssetGroups(req)
+	return adaptor.ListAssetGroups(ctx, req)
 }
 
 func (a *Ark) CreateAsset(ctx *gin.Context, req *dto.CreateAssetRequest) (*dto.CreateAssetResponse, error) {
@@ -56,7 +56,7 @@ func (a *Ark) CreateAsset(ctx *gin.Context, req *dto.CreateAssetRequest) (*dto.C
 	if err != nil {
 		return nil, err
 	}
-	return adaptor.CreateAssets(req)
+	return adaptor.CreateAssets(ctx, req)
 }
 
 func (a *Ark) ListAssets(ctx *gin.Context, req *dto.ListAssetsRequest) (*dto.ListAssetsResponse, error) {
@@ -64,7 +64,7 @@ func (a *Ark) ListAssets(ctx *gin.Context, req *dto.ListAssetsRequest) (*dto.Lis
 	if err != nil {
 		return nil, err
 	}
-	return adaptor.ListAssets(req)
+	return adaptor.ListAssets(ctx, req)
 }
 
 func (a *Ark) GetAsset(ctx *gin.Context, req *dto.GetAssetRequest) (*dto.GetAssetResponse, error) {
@@ -72,7 +72,7 @@ func (a *Ark) GetAsset(ctx *gin.Context, req *dto.GetAssetRequest) (*dto.GetAsse
 	if err != nil {
 		return nil, err
 	}
-	return adaptor.GetAsset(req)
+	return adaptor.GetAsset(ctx, req)
 }
 
 func (a *Ark) CreateVisualValidateSession(ctx *gin.Context, req *dto.CreateVisualValidateSessionRequest) (*dto.CreateVisualValidateSessionResponse, error) {
@@ -80,7 +80,7 @@ func (a *Ark) CreateVisualValidateSession(ctx *gin.Context, req *dto.CreateVisua
 	if err != nil {
 		return nil, err
 	}
-	return adaptor.CreateVisualValidateSession(req)
+	return adaptor.CreateVisualValidateSession(ctx, req)
 }
 
 func (a *Ark) GetVisualValidateResult(ctx *gin.Context, req *dto.GetVisualValidateResultRequest) (*dto.GetVisualValidateResultResponse, error) {
@@ -88,5 +88,5 @@ func (a *Ark) GetVisualValidateResult(ctx *gin.Context, req *dto.GetVisualValida
 	if err != nil {
 		return nil, err
 	}
-	return adaptor.GetVisualValidateResult(req)
+	return adaptor.GetVisualValidateResult(ctx, req)
 }
