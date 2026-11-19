@@ -82,6 +82,10 @@ func (a *Ark) GetEnhanceTask(ctx *gin.Context, req dto.ArkGetTaskRequest) (*dto.
 	}
 	// 响应参数要操持超分目标分辨率
 	task.Resolution = &videoEnhance.EnhanceResolution
+	// 超过重试次数直接返回原始视频生成任务信息
+	if videoEnhance.RetryCount >= 3 {
+		return task, nil
+	}
 
 	// 缓存进行中信息供超分的时候直接返回
 	if task.Status == dto.ArkTaskStatusRunning {
@@ -123,10 +127,11 @@ func (a *Ark) GetEnhanceTask(ctx *gin.Context, req dto.ArkGetTaskRequest) (*dto.
 		request := enhance.CreateTaskRequest{
 			VideoURL:    task.Content.VideoURL,
 			Resolution:  task.Resolution,
-			ClientToken: new(task.ID),
+			ClientToken: new(task.ID), // 火山任务幂等控制，不会重复创建任务，会正常返回任务ID
 		}
 		createTask, err := enhanceAdapter.CreateTask(ctx, request)
 		if err != nil {
+			_ = videoEnhance.UpdateFailed(err.Error())
 			return nil, err
 		}
 		videoEnhance.EnhanceTaskID = &createTask.ID
@@ -138,6 +143,7 @@ func (a *Ark) GetEnhanceTask(ctx *gin.Context, req dto.ArkGetTaskRequest) (*dto.
 
 	response, err := enhanceAdapter.GetTask(ctx, *videoEnhance.EnhanceTaskID)
 	if err != nil {
+		_ = videoEnhance.UpdateFailed(err.Error())
 		return nil, err
 	}
 	switch response.Status {
