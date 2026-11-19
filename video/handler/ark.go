@@ -45,6 +45,34 @@ func (a *Ark) CreateTask(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, resp)
 }
 
+func (a *Ark) GetEnhanceTask(ctx *gin.Context) {
+	var req dto.ArkGetTaskRequest
+	if err := ctx.ShouldBindUri(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	resp, err := a.arkService.GetEnhanceTask(ctx, req)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, resp)
+}
+
+func (a *Ark) CreateEnhanceTask(ctx *gin.Context) {
+	var req dto.ArkCreateTaskRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	resp, err := a.arkService.CreateEnhanceTask(ctx, req)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, resp)
+}
+
 func (a *Ark) Action(c *gin.Context) {
 	var (
 		result dto.AssetBaseResult

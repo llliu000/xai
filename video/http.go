@@ -27,15 +27,26 @@ func NewVideoServer() *http.Server {
 		common.SetRelayContext(ctx)
 	})
 	// ark渠道适配
+	arkHandler := handler.NewArk()
 	arkRouter := channelGroup.Group("/api/v3")
 	{
-		arkHandler := handler.NewArk()
 		// 视频生成
 		videoRouter := arkRouter.Group("/contents/generations/tasks")
 		videoRouter.GET("/:task_id", arkHandler.GetTask)
 		videoRouter.POST("", arkHandler.CreateTask)
 		// 素材管理
 		assetRouter := arkRouter.Group("/asset")
+		assetRouter.POST("/", arkHandler.Action)
+		assetRouter.POST("", arkHandler.Action)
+	}
+	arkEnhanceRouter := channelGroup.Group("/enhance/api/v3")
+	{
+		// 视频生成
+		videoRouter := arkEnhanceRouter.Group("/contents/generations/tasks")
+		videoRouter.GET("/:task_id", arkHandler.GetEnhanceTask)
+		videoRouter.POST("", arkHandler.CreateEnhanceTask)
+		// 素材管理
+		assetRouter := arkEnhanceRouter.Group("/asset")
 		assetRouter.POST("/", arkHandler.Action)
 		assetRouter.POST("", arkHandler.Action)
 	}

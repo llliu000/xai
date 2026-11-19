@@ -1,10 +1,15 @@
 package service
 
 import (
+	"log"
+
+	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/video/channel"
 	"github.com/QuantumNous/new-api/video/channel/ark"
 	"github.com/QuantumNous/new-api/video/dto"
+	"github.com/QuantumNous/new-api/video/enhance"
 	"github.com/gin-gonic/gin"
+	"gorm.io/datatypes"
 )
 
 type Ark struct {
@@ -33,6 +38,121 @@ func (a *Ark) GetTask(ctx *gin.Context, req dto.ArkGetTaskRequest) (*dto.ArkGetT
 		return nil, err
 	}
 	return adapter.GetTask(ctx, req)
+}
+
+func (a *Ark) CreateEnhanceTask(ctx *gin.Context, req dto.ArkCreateTaskRequest) (*dto.ArkCreateTaskResponse, error) {
+	enhanceResolution := req.Resolution
+	if enhanceResolution == nil {
+		enhanceResolution = new("720p")
+	}
+	resolution, err := enhance.GetConfig(*enhanceResolution)
+	if err != nil {
+		return nil, err
+	}
+	req.Resolution = &resolution.Origin
+	task, err := a.CreateTask(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	var videoEnhance = model.VideoEnhance{
+		OriginParams:      datatypes.NewJSONType(req),
+		EnhanceResolution: *enhanceResolution,
+		OriginResolution:  resolution.Origin,
+		OriginTaskID:      task.ID,
+	}
+	// 保存超分原始数据
+	if err = model.DB.Create(&videoEnhance).Error; err != nil {
+		log.Println(err)
+	}
+	return task, nil
+}
+
+func (a *Ark) GetEnhanceTask(ctx *gin.Context, req dto.ArkGetTaskRequest) (*dto.ArkGetTaskResponse, error) {
+	task, err := a.GetTask(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	var videoEnhance model.VideoEnhance
+	err = model.DB.Where("origin_task_id = ?", req.TaskID).Find(&videoEnhance).Error
+	if err != nil {
+		return nil, err
+	}
+	// 超分出现问题直接返回超分信息
+	if videoEnhance.ID == 0 {
+		return task, nil
+	}
+	// 响应参数要操持超分目标分辨率
+	task.Resolution = &videoEnhance.EnhanceResolution
+
+	// 缓存进行中信息供超分的时候直接返回
+	if task.Status == dto.ArkTaskStatusRunning {
+		videoEnhance.RunningResult = new(datatypes.NewJSONType(*task))
+		if err = model.DB.Save(&videoEnhance).Error; err != nil {
+			return nil, err
+		}
+	}
+	if videoEnhance.RunningResult == nil && task.Status == dto.ArkTaskStatusSucceeded {
+		runningResult := dto.ArkGetTaskResponse{
+			Status:        dto.ArkTaskStatusRunning,
+			GenerateAudio: task.GenerateAudio,
+			OutputFormat:  task.OutputFormat,
+			ServiceTier:   task.ServiceTier,
+			Resolution:    task.Resolution,
+			CreatedAt:     task.CreatedAt,
+			UpdatedAt:     task.UpdatedAt,
+			Priority:      task.Priority,
+			Model:         task.Model,
+			Ratio:         task.Ratio,
+			Draft:         task.Draft,
+			ID:            task.ID,
+		}
+		videoEnhance.RunningResult = new(datatypes.NewJSONType(runningResult))
+		if err = model.DB.Save(&videoEnhance).Error; err != nil {
+			return nil, err
+		}
+	}
+
+	if task.Status != dto.ArkTaskStatusSucceeded {
+		return task, nil
+	}
+	enhanceAdapter, err := enhance.NewRegistry().GetAdapter("")
+	if err != nil {
+		return nil, err
+	}
+	// 超分任务进行中直接返回生成任务进行中
+	if videoEnhance.EnhanceTaskID == "" {
+		request := enhance.CreateTaskRequest{
+			VideoURL:   task.Content.VideoURL,
+			Resolution: task.Resolution,
+		}
+		createTask, err := enhanceAdapter.CreateTask(ctx, request)
+		if err != nil {
+			return nil, err
+		}
+		videoEnhance.EnhanceTaskID = createTask.ID
+		err = model.DB.Save(&videoEnhance).Error
+		return new(videoEnhance.RunningResult.Data()), err
+	}
+
+	response, err := enhanceAdapter.GetTask(ctx, videoEnhance.EnhanceTaskID)
+	if err != nil {
+		return nil, err
+	}
+	switch response.Status {
+	case enhance.TaskStatusFailed: // 超分失败直接返回原始任务结果
+		return task, nil
+	case enhance.TaskStatusSucceeded: // 成功直接替换生成任务url地址返回
+		resolution, err := enhance.GetConfig(videoEnhance.EnhanceResolution)
+		if err != nil {
+			return nil, err
+		}
+		task.Usage.CompletionTokens = int64(float64(task.Usage.CompletionTokens) * resolution.Ratio)
+		task.Usage.TotalTokens = int64(float64(task.Usage.TotalTokens) * resolution.Ratio)
+		task.Content.VideoURL = response.VideoURL
+		return task, nil
+	default: // 队列或者进行中直接返回原始任务的生成中状态
+		return new(videoEnhance.RunningResult.Data()), nil
+	}
 }
 
 func (a *Ark) CreateAssetGroup(ctx *gin.Context, req *dto.CreateAssetGroupRequest) (*dto.CreateAssetGroupResponse, error) {
