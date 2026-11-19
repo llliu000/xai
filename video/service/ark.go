@@ -55,13 +55,13 @@ func (a *Ark) CreateEnhanceTask(ctx *gin.Context, req dto.ArkCreateTaskRequest) 
 		return nil, err
 	}
 	var videoEnhance = model.VideoEnhance{
-		OriginParams:      datatypes.NewJSONType(req),
+		VideoTaskParams:   datatypes.NewJSONType(req),
 		EnhanceResolution: *enhanceResolution,
-		OriginResolution:  resolution.Origin,
-		OriginTaskID:      task.ID,
+		VideoResolution:   resolution.Origin,
+		VideoTaskID:       task.ID,
 	}
 	// 保存超分原始数据
-	if err = model.DB.Create(&videoEnhance).Error; err != nil {
+	if err = videoEnhance.Create(); err != nil {
 		log.Println(err)
 	}
 	return task, nil
@@ -73,8 +73,7 @@ func (a *Ark) GetEnhanceTask(ctx *gin.Context, req dto.ArkGetTaskRequest) (*dto.
 		return nil, err
 	}
 	var videoEnhance model.VideoEnhance
-	err = model.DB.Where("origin_task_id = ?", req.TaskID).Find(&videoEnhance).Error
-	if err != nil {
+	if err = videoEnhance.FindByVideoTaskId(task.ID); err != nil {
 		return nil, err
 	}
 	// 超分出现问题直接返回超分信息
@@ -86,12 +85,12 @@ func (a *Ark) GetEnhanceTask(ctx *gin.Context, req dto.ArkGetTaskRequest) (*dto.
 
 	// 缓存进行中信息供超分的时候直接返回
 	if task.Status == dto.ArkTaskStatusRunning {
-		videoEnhance.RunningResult = new(datatypes.NewJSONType(*task))
-		if err = model.DB.Save(&videoEnhance).Error; err != nil {
+		videoEnhance.VideoRunningResult = new(datatypes.NewJSONType(*task))
+		if err = videoEnhance.UpdateVideoRunningResult(); err != nil {
 			return nil, err
 		}
 	}
-	if videoEnhance.RunningResult == nil && task.Status == dto.ArkTaskStatusSucceeded {
+	if videoEnhance.VideoRunningResult == nil && task.Status == dto.ArkTaskStatusSucceeded {
 		runningResult := dto.ArkGetTaskResponse{
 			Status:        dto.ArkTaskStatusRunning,
 			GenerateAudio: task.GenerateAudio,
@@ -106,8 +105,8 @@ func (a *Ark) GetEnhanceTask(ctx *gin.Context, req dto.ArkGetTaskRequest) (*dto.
 			Draft:         task.Draft,
 			ID:            task.ID,
 		}
-		videoEnhance.RunningResult = new(datatypes.NewJSONType(runningResult))
-		if err = model.DB.Save(&videoEnhance).Error; err != nil {
+		videoEnhance.VideoRunningResult = new(datatypes.NewJSONType(runningResult))
+		if err = videoEnhance.UpdateVideoRunningResult(); err != nil {
 			return nil, err
 		}
 	}
@@ -120,7 +119,7 @@ func (a *Ark) GetEnhanceTask(ctx *gin.Context, req dto.ArkGetTaskRequest) (*dto.
 		return nil, err
 	}
 	// 超分任务进行中直接返回生成任务进行中
-	if videoEnhance.EnhanceTaskID == "" {
+	if videoEnhance.EnhanceTaskID == nil {
 		request := enhance.CreateTaskRequest{
 			VideoURL:   task.Content.VideoURL,
 			Resolution: task.Resolution,
@@ -129,12 +128,14 @@ func (a *Ark) GetEnhanceTask(ctx *gin.Context, req dto.ArkGetTaskRequest) (*dto.
 		if err != nil {
 			return nil, err
 		}
-		videoEnhance.EnhanceTaskID = createTask.ID
-		err = model.DB.Save(&videoEnhance).Error
-		return new(videoEnhance.RunningResult.Data()), err
+		videoEnhance.EnhanceTaskID = &createTask.ID
+		if err = videoEnhance.UpdateEnhanceTaskID(); err != nil {
+			return nil, err
+		}
+		return new(videoEnhance.VideoRunningResult.Data()), nil
 	}
 
-	response, err := enhanceAdapter.GetTask(ctx, videoEnhance.EnhanceTaskID)
+	response, err := enhanceAdapter.GetTask(ctx, *videoEnhance.EnhanceTaskID)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +152,7 @@ func (a *Ark) GetEnhanceTask(ctx *gin.Context, req dto.ArkGetTaskRequest) (*dto.
 		task.Content.VideoURL = response.VideoURL
 		return task, nil
 	default: // 队列或者进行中直接返回原始任务的生成中状态
-		return new(videoEnhance.RunningResult.Data()), nil
+		return new(videoEnhance.VideoRunningResult.Data()), nil
 	}
 }
 
