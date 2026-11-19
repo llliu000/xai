@@ -22,8 +22,9 @@ var _ enhance.Adapter = (*Adapter)(nil)
 
 func (a *Adapter) CreateTask(ctx context.Context, req enhance.CreateTaskRequest) (*enhance.CreateTaskResponse, error) {
 	request := createTaskRequest{
-		VideoURL:   req.VideoURL,
-		Resolution: req.Resolution,
+		ClientToken: req.ClientToken,
+		Resolution:  req.Resolution,
+		VideoURL:    req.VideoURL,
 		//MediaOutputDestination: new("tos://"),
 	}
 	var uri string

@@ -121,8 +121,9 @@ func (a *Ark) GetEnhanceTask(ctx *gin.Context, req dto.ArkGetTaskRequest) (*dto.
 	// 超分任务进行中直接返回生成任务进行中
 	if videoEnhance.EnhanceTaskID == nil {
 		request := enhance.CreateTaskRequest{
-			VideoURL:   task.Content.VideoURL,
-			Resolution: task.Resolution,
+			VideoURL:    task.Content.VideoURL,
+			Resolution:  task.Resolution,
+			ClientToken: new(task.ID),
 		}
 		createTask, err := enhanceAdapter.CreateTask(ctx, request)
 		if err != nil {

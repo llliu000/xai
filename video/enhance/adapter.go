@@ -48,8 +48,9 @@ const (
 )
 
 type CreateTaskRequest struct {
-	VideoURL   string
-	Resolution *string
+	VideoURL    string
+	ClientToken *string
+	Resolution  *string
 }
 type CreateTaskResponse struct {
 	ID string
