@@ -19,23 +19,23 @@ type VideoEnhance struct {
 	UpdatedAt          time.Time                                    `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
-func (ve VideoEnhance) Create() error {
-	return DB.Create(&ve).Error
+func (ve *VideoEnhance) Create() error {
+	return DB.Create(ve).Error
 }
 
-func (ve VideoEnhance) UpdateEnhanceTaskID() error {
+func (ve *VideoEnhance) UpdateEnhanceTaskID() error {
 	if ve.EnhanceTaskID == nil {
 		return nil
 	}
-	return DB.Where("enhance_task_id = ?", ve.EnhanceTaskID).
+	return DB.Model(&VideoEnhance{}).Where("video_task_id = ?", ve.VideoTaskID).
 		Update("enhance_task_id", ve.EnhanceTaskID).Error
 }
 
-func (ve VideoEnhance) UpdateVideoRunningResult() error {
-	return DB.Where("video_task_id = ?", ve.VideoTaskID).
-		Update("video_task_params", ve.VideoRunningResult).Error
+func (ve *VideoEnhance) UpdateVideoRunningResult() error {
+	return DB.Model(&VideoEnhance{}).Where("video_task_id = ?", ve.VideoTaskID).
+		Update("video_running_result", ve.VideoRunningResult).Error
 }
 
-func (ve VideoEnhance) FindByVideoTaskId(videoTaskId string) error {
-	return DB.Where("video_task_id = ?", videoTaskId).Find(&ve).Error
+func (ve *VideoEnhance) FindByVideoTaskId(videoTaskId string) error {
+	return DB.Where("video_task_id = ?", videoTaskId).Find(ve).Error
 }
