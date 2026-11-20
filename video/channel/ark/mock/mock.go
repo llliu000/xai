@@ -25,8 +25,8 @@ func (a *Adapter) GetTask(ctx context.Context, req dto.ArkGetTaskRequest) (*dto.
 		Model:  "mock",
 		Status: dto.ArkTaskStatusSucceeded,
 		Content: dto.ArkOutput{
-			VideoURL:     "https://mock.com",
-			LastFrameURL: "https://mock.com",
+			VideoURL:     "https://www.pexels.com/zh-cn/download/video/34337750/",
+			LastFrameURL: "https://images.pexels.com/photos/13039769/pexels-photo-13039769.jpeg",
 		},
 		Usage: dto.ArkUsage{
 			CompletionTokens: 10000,
