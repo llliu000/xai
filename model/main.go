@@ -380,6 +380,7 @@ func migrateDB() error {
 		&AssetChannel{},
 		&AssetGroup{},
 		&AssetGroupChannel{},
+		&VideoEnhance{},
 	)
 	if err != nil {
 		return err
