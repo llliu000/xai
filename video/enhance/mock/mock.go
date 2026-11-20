@@ -17,7 +17,7 @@ func (a *Adapter) CreateTask(ctx context.Context, req dto.CreateTaskRequest) (*d
 func (a *Adapter) GetTask(ctx context.Context, taskID string) (*dto.GetTaskResponse, error) {
 	return &dto.GetTaskResponse{
 		Status:   dto.TaskStatusSucceeded,
-		VideoURL: "https://www.baidu.com",
+		VideoURL: "https://www.pexels.com/zh-cn/download/video/27375628/",
 		TaskID:   taskID,
 	}, nil
 }
