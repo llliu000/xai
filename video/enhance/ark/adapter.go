@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/QuantumNous/new-api/video/enhance"
+	"github.com/QuantumNous/new-api/video/enhance/dto"
 )
 
 type Adapter struct {
@@ -18,9 +18,7 @@ type Adapter struct {
 	ApiKey      string `json:"api_key"`
 }
 
-var _ enhance.Adapter = (*Adapter)(nil)
-
-func (a *Adapter) CreateTask(ctx context.Context, req enhance.CreateTaskRequest) (*enhance.CreateTaskResponse, error) {
+func (a *Adapter) CreateTask(ctx context.Context, req dto.CreateTaskRequest) (*dto.CreateTaskResponse, error) {
 	request := createTaskRequest{
 		ClientToken: req.ClientToken,
 		Resolution:  req.Resolution,
@@ -47,10 +45,10 @@ func (a *Adapter) CreateTask(ctx context.Context, req enhance.CreateTaskRequest)
 	if err := response.validate(); err != nil {
 		return nil, err
 	}
-	return &enhance.CreateTaskResponse{ID: response.TaskID}, nil
+	return &dto.CreateTaskResponse{ID: response.TaskID}, nil
 }
 
-func (a *Adapter) GetTask(ctx context.Context, taskID string) (*enhance.GetTaskResponse, error) {
+func (a *Adapter) GetTask(ctx context.Context, taskID string) (*dto.GetTaskResponse, error) {
 	var response getTaskResponse
 	uri := fmt.Sprintf("/api/v1/tasks/%s", taskID)
 	if err := a.request(ctx, http.MethodGet, uri, struct{}{}, &response); err != nil {
@@ -60,17 +58,17 @@ func (a *Adapter) GetTask(ctx context.Context, taskID string) (*enhance.GetTaskR
 		return nil, err
 	}
 
-	task := &enhance.GetTaskResponse{TaskID: response.TaskID}
+	task := &dto.GetTaskResponse{TaskID: response.TaskID}
 	switch response.Status {
 	case "running":
-		task.Status = enhance.TaskStatusRunning
+		task.Status = dto.TaskStatusRunning
 	case "completed":
-		task.Status = enhance.TaskStatusSucceeded
+		task.Status = dto.TaskStatusSucceeded
 		task.VideoURL = response.Result.VideoURL
 	case "failed":
-		task.Status = enhance.TaskStatusFailed
+		task.Status = dto.TaskStatusFailed
 	default:
-		task.Status = enhance.TaskStatusQueued
+		task.Status = dto.TaskStatusQueued
 	}
 	return task, nil
 }

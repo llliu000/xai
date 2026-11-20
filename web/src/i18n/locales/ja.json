@@ -1,5 +1,12 @@
 {
   "translation": {
+    "Ultra-fast version": "超高速版",
+    "Standard version": "標準版",
+    "Professional version": "プロフェッショナル版",
+    "Large model version": "大規模モデル版",
+    "Super Resolution Settings": "超解像設定",
+    "Tool version": "ツールバージョン",
+    "Enter a valid HTTP or HTTPS URL": "有効な HTTP または HTTPS URL を入力してください",
     "Asset and channel regions do not match": "素材とチャネルのリージョンが一致しません",
     "Video region": "動画のリージョン",
     "360": "360",

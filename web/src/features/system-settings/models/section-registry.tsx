@@ -20,6 +20,7 @@ import { IoNetDeploymentSettingsSection } from '../integrations/ionet-deployment
 import type { ModelSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
 import { ClaudeSettingsCard } from './claude-settings-card'
+import { EnhanceSettingsCard } from './enhance-settings-card'
 import { GeminiSettingsCard } from './gemini-settings-card'
 import { GlobalSettingsCard } from './global-settings-card'
 import { GrokSettingsCard } from './grok-settings-card'
@@ -121,6 +122,13 @@ const MODELS_SECTIONS = [
     ),
   },
 
+  {
+    id: 'enhance',
+    titleKey: 'Super Resolution Settings',
+    build: (settings: ModelSettings) => (
+      <EnhanceSettingsCard config={settings['enhance.config']} />
+    ),
+  },
   {
     id: 'model-deployment',
     titleKey: 'Model Deployment',

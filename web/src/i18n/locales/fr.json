@@ -1,5 +1,12 @@
 {
   "translation": {
+    "Ultra-fast version": "Version ultra-rapide",
+    "Standard version": "Version standard",
+    "Professional version": "Version professionnelle",
+    "Large model version": "Version grand modèle",
+    "Super Resolution Settings": "Configuration de la super-résolution",
+    "Tool version": "Version de l’outil",
+    "Enter a valid HTTP or HTTPS URL": "Saisissez une URL HTTP ou HTTPS valide",
     "Asset and channel regions do not match": "Les régions de la ressource et du canal ne correspondent pas",
     "Video region": "Région vidéo",
     "360": "360",

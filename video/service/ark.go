@@ -8,6 +8,7 @@ import (
 	"github.com/QuantumNous/new-api/video/channel/ark"
 	"github.com/QuantumNous/new-api/video/dto"
 	"github.com/QuantumNous/new-api/video/enhance"
+	enhanceDto "github.com/QuantumNous/new-api/video/enhance/dto"
 	"github.com/gin-gonic/gin"
 	"gorm.io/datatypes"
 )
@@ -118,13 +119,13 @@ func (a *Ark) GetEnhanceTask(ctx *gin.Context, req dto.ArkGetTaskRequest) (*dto.
 	if task.Status != dto.ArkTaskStatusSucceeded {
 		return task, nil
 	}
-	enhanceAdapter, err := enhance.NewRegistry().GetAdapter("")
+	enhanceAdapter, err := enhance.GetAdapter("mock")
 	if err != nil {
 		return nil, err
 	}
 	// 超分任务进行中直接返回生成任务进行中
 	if videoEnhance.EnhanceTaskID == nil {
-		request := enhance.CreateTaskRequest{
+		request := enhanceDto.CreateTaskRequest{
 			VideoURL:    task.Content.VideoURL,
 			Resolution:  task.Resolution,
 			ClientToken: new(task.ID), // 火山任务幂等控制，不会重复创建任务，会正常返回任务ID
@@ -147,9 +148,9 @@ func (a *Ark) GetEnhanceTask(ctx *gin.Context, req dto.ArkGetTaskRequest) (*dto.
 		return nil, err
 	}
 	switch response.Status {
-	case enhance.TaskStatusFailed: // 超分失败直接返回原始任务结果
+	case enhanceDto.TaskStatusFailed: // 超分失败直接返回原始任务结果
 		return task, nil
-	case enhance.TaskStatusSucceeded: // 成功直接替换生成任务url地址返回
+	case enhanceDto.TaskStatusSucceeded: // 成功直接替换生成任务url地址返回
 		resolution, err := enhance.GetConfig(videoEnhance.EnhanceResolution)
 		if err != nil {
 			return nil, err

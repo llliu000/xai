@@ -1,5 +1,12 @@
 {
   "translation": {
+    "Ultra-fast version": "Phiên bản siêu nhanh",
+    "Standard version": "Phiên bản tiêu chuẩn",
+    "Professional version": "Phiên bản chuyên nghiệp",
+    "Large model version": "Phiên bản mô hình lớn",
+    "Super Resolution Settings": "Cấu hình siêu phân giải",
+    "Tool version": "Phiên bản công cụ",
+    "Enter a valid HTTP or HTTPS URL": "Nhập URL HTTP hoặc HTTPS hợp lệ",
     "Asset and channel regions do not match": "Khu vực của tài nguyên và kênh không khớp",
     "Video region": "Khu vực video",
     "360": "360",

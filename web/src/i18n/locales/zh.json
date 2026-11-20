@@ -1,5 +1,12 @@
 {
   "translation": {
+    "Ultra-fast version": "极速版",
+    "Standard version": "标准版",
+    "Professional version": "专业版",
+    "Large model version": "大模型版",
+    "Super Resolution Settings": "超分配置",
+    "Tool version": "工具版本",
+    "Enter a valid HTTP or HTTPS URL": "请输入有效的 HTTP 或 HTTPS 地址",
     "Asset and channel regions do not match": "素材与渠道的区域不一致",
     "Video region": "视频区域",
     "360": "360",
