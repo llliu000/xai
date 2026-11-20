@@ -124,7 +124,7 @@ func (a *Ark) GetEnhanceTask(ctx *gin.Context, req dto.ArkGetTaskRequest) (*dto.
 	if task.Status != dto.ArkTaskStatusSucceeded {
 		return task, nil
 	}
-	enhanceAdapter, err := enhance.GetAdapter("mock")
+	enhanceAdapter, err := enhance.GetAdapter("ark")
 	if err != nil {
 		return nil, err
 	}
