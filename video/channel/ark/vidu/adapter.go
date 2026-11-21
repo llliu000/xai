@@ -3,6 +3,7 @@ package vidu
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/QuantumNous/new-api/video/common"
 	"github.com/QuantumNous/new-api/video/dto"
@@ -34,9 +35,54 @@ func (a *Adapter) GetTask(ctx context.Context, req dto.ArkGetTaskRequest) (*dto.
 	apiKey := common.GetRelayContext(ctx).ApiKey
 	httpClient := utils.NewHttpClient(url, apiKey)
 
-	var response dto.ArkGetTaskResponse
-	err := httpClient.Get(ctx, &response)
-	return &response, err
+	var resTask GetTaskResponse
+	if err := httpClient.Get(ctx, &resTask); err != nil {
+		return nil, err
+	}
+
+	response := dto.ArkGetTaskResponse{
+		Status:        dto.ArkTaskStatus(resTask.Status),
+		GenerateAudio: &resTask.GenerateAudio,
+		OutputFormat:  &resTask.OutputFormat,
+		ServiceTier:   &resTask.ServiceTier,
+		Resolution:    &resTask.Resolution,
+		Draft:         &resTask.Draft,
+		Ratio:         &resTask.Ratio,
+		Model:         resTask.Model,
+		ID:            resTask.Id,
+	}
+	if resTask.Usage != nil {
+		response.Usage.CompletionTokens, _ = strconv.ParseInt(resTask.Usage.CompletionTokens, 10, 64)
+		response.Usage.TotalTokens, _ = strconv.ParseInt(resTask.Usage.CompletionTokens, 10, 64)
+	}
+
+	if resTask.Error != nil {
+		response.Error = &dto.ArkError{Message: resTask.Error.Message, Code: resTask.Error.Code}
+	}
+	if resTask.Content != nil {
+		response.Content.LastFrameURL = resTask.Content.LastFrameUrl
+		response.Content.VideoURL = resTask.Content.VideoUrl
+	}
+
+	for _, tool := range resTask.Tools {
+		response.Tools = append(response.Tools, &dto.ArkTool{Type: tool.Type})
+	}
+
+	executionExpiresAfter, _ := strconv.ParseInt(resTask.ExecutionExpiresAfter, 10, 64)
+	framesPerSecond, _ := strconv.ParseInt(resTask.FramesPerSecond, 10, 64)
+	createdAt, _ := strconv.ParseInt(resTask.CreatedAt, 10, 64)
+	updatedAt, _ := strconv.ParseInt(resTask.UpdatedAt, 10, 64)
+	duration, _ := strconv.ParseInt(resTask.Duration, 10, 64)
+	deed, _ := strconv.ParseInt(resTask.Seed, 10, 64)
+
+	response.ExecutionExpiresAfter = &executionExpiresAfter
+	response.FramesPerSecond = &framesPerSecond
+	response.CreatedAt = createdAt
+	response.UpdatedAt = updatedAt
+	response.Duration = &duration
+	response.Seed = &deed
+
+	return &response, nil
 }
 
 func (a *Adapter) CreateAssetGroup(ctx context.Context, req *dto.CreateAssetGroupRequest) (*dto.CreateAssetGroupResponse, error) {
