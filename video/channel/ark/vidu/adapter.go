@@ -10,7 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/video/utils"
 )
 
-const BaseUrl = "https://api.mixrouter.io"
+const BaseUrl = "https://api.vidu.com/ent"
 
 type Adapter struct {
 }

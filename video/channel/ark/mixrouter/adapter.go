@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const BaseUrl = "https://api.mixrouter.io"
+const BaseUrl = "https://api.mixroute.ai"
 
 type Adapter struct{}
 
