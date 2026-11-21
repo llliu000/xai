@@ -5,7 +5,9 @@ import (
 	"errors"
 
 	"github.com/QuantumNous/new-api/video/channel/ark"
+	"github.com/QuantumNous/new-api/video/channel/ark/mixrouter"
 	mockArk "github.com/QuantumNous/new-api/video/channel/ark/mock"
+	"github.com/QuantumNous/new-api/video/channel/ark/tokenmarket"
 	"github.com/QuantumNous/new-api/video/channel/ark/vidu"
 	"github.com/QuantumNous/new-api/video/channel/wan"
 	mockWan "github.com/QuantumNous/new-api/video/channel/wan/mock"
@@ -20,7 +22,10 @@ func DefaultArkRegistry() *Registry[ark.Adapter] {
 	return &Registry[ark.Adapter]{
 		mapping: map[string]ark.Adapter{
 			common.Mock: &mockArk.Adapter{},
-			common.Vidu: &vidu.Adapter{},
+
+			common.TokenMarket: &tokenmarket.Adapter{},
+			common.MixRouter:   &mixrouter.Adapter{},
+			common.Vidu:        &vidu.Adapter{},
 		},
 	}
 }
@@ -37,6 +42,10 @@ func DefaultArkAssetRegistry() *Registry[ark.Asset] {
 	return &Registry[ark.Asset]{
 		mapping: map[string]ark.Asset{
 			common.Mock: &mockArk.Adapter{},
+
+			common.TokenMarket: &tokenmarket.Adapter{},
+			common.MixRouter:   &mixrouter.Adapter{},
+			common.Vidu:        &vidu.Adapter{},
 		},
 	}
 }

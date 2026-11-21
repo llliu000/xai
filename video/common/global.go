@@ -12,8 +12,10 @@ const (
 )
 
 const (
-	Mock = "mock"
-	Vidu = "vidu"
+	Mock        = "mock"
+	Vidu        = "vidu"
+	TokenMarket = "tokenmarket"
+	MixRouter   = "mixrouter"
 )
 
 type RelayContext struct {
