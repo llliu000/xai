@@ -39,12 +39,6 @@ func SyncAssetsToChannel(ctx context.Context, channelID int) (*model.SystemTask,
 	if channel.GetSetting().TaskPluginKey != "doubao" {
 		return nil, common.NewMessage("Asset synchronization requires a DoubaoVideo channel")
 	}
-	if channel.CreatedTime > time.Now().AddDate(0, 0, -1).Unix() {
-		return nil, common.NewMessage("Asset synchronization create time more than 1 day")
-	}
-	if channel.Status != 2 {
-		return nil, common.NewMessage("Asset synchronization status must be disabled")
-	}
 
 	activeKey := fmt.Sprintf("%s:%d", assetSyncPrepareTaskType, channelID)
 	var active model.SystemTask
