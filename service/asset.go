@@ -480,7 +480,7 @@ func ResolveAssetReferences(info *relaycommon.RelayInfo, body map[string]any) er
 		if !local {
 			continue
 		}
-		upstreamID, err := model.GetUpstreamAssetID(info.ChannelId, assetID)
+		upstreamID, err := model.GetUpstreamAssetID(info.UserId, info.ChannelId, assetID)
 		if err != nil {
 			return fmt.Errorf("%s not active", assetID)
 		}

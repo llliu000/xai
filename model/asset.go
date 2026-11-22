@@ -91,12 +91,13 @@ func NormalizeAssetRegion(region string) string {
 	return region
 }
 
-func GetUpstreamAssetID(channelID int, assetID string) (string, error) {
+func GetUpstreamAssetID(userID, channelID int, assetID string) (string, error) {
 	var mapping AssetChannel
 	err := DB.Select("upstream_asset_id").
 		Where("status = ?", AssetStatusActive).
 		Where("channel_id = ?", channelID).
 		Where("asset_id = ?", assetID).
+		Where("user_id = ?", userID).
 		Take(&mapping).Error
 	return mapping.UpstreamAssetId, err
 }
