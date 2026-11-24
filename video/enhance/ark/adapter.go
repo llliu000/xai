@@ -19,7 +19,7 @@ type Adapter struct {
 }
 
 func (a *Adapter) CreateTask(ctx context.Context, req dto.CreateTaskRequest) (*dto.CreateTaskResponse, error) {
-	request := createTaskRequest{
+	request := TaskRequest{
 		ClientToken: req.ClientToken,
 		Resolution:  req.Resolution,
 		VideoURL:    req.VideoURL,
@@ -34,11 +34,11 @@ func (a *Adapter) CreateTask(ctx context.Context, req dto.CreateTaskRequest) (*d
 		uri = "/api/v1/tools/enhance-video"
 		request.Scene = new("aigc")
 	case "generative":
-		uri = "/api/v1/tools/enhance-video-generative"
+		uri = GenerativeTaskPath
 	default:
 		uri = "/api/v1/tools/enhance-video"
 	}
-	var response createTaskResponse
+	var response SubmitResponse
 	if err := a.request(ctx, http.MethodPost, uri, request, &response); err != nil {
 		return nil, err
 	}
@@ -49,8 +49,8 @@ func (a *Adapter) CreateTask(ctx context.Context, req dto.CreateTaskRequest) (*d
 }
 
 func (a *Adapter) GetTask(ctx context.Context, taskID string) (*dto.GetTaskResponse, error) {
-	var response getTaskResponse
-	uri := fmt.Sprintf("/api/v1/tasks/%s", taskID)
+	var response TaskResponse
+	uri := fmt.Sprintf("%s/%s", TaskQueryPath, taskID)
 	if err := a.request(ctx, http.MethodGet, uri, struct{}{}, &response); err != nil {
 		return nil, err
 	}

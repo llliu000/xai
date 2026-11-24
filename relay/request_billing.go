@@ -18,7 +18,7 @@ import (
 // PrepareRequestBilling estimates and reserves one request's charge. Transports
 // provide the current request body through BodyStorage or BillingRequestInput;
 // channel retries retain the resulting billing session and pricing snapshot.
-func PrepareRequestBilling(c *gin.Context, info *relaycommon.RelayInfo) *types.NewAPIError {
+func PrepareRequestBilling(c *gin.Context, info *relaycommon.RelayInfo, recordHTTPUsage bool) *types.NewAPIError {
 	meta := &types.TokenCountMeta{TokenType: types.TokenTypeTokenizer}
 	if info.Request != nil && constant.CountToken {
 		meta = info.Request.GetTokenCountMeta()
@@ -45,6 +45,11 @@ func PrepareRequestBilling(c *gin.Context, info *relaycommon.RelayInfo) *types.N
 	priceData, err := helper.ModelPriceHelper(c, info, tokens, meta)
 	if err != nil {
 		return types.NewError(err, types.ErrorCodeModelPriceError, types.ErrOptionWithStatusCode(http.StatusBadRequest))
+	}
+	if recordHTTPUsage {
+		if apiErr := service.BeginRelayUsageRecord(c, info); apiErr != nil {
+			return apiErr
+		}
 	}
 	if priceData.FreeModel {
 		logger.LogInfo(c, common.LogText("model %s is free, skipping pre-consume", info.OriginModelName))

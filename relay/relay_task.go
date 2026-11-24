@@ -72,7 +72,7 @@ func ResolveOriginTask(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskErr
 	if err != nil {
 		return service.TaskErrorWrapper(err, "get_origin_task_failed", http.StatusInternalServerError, common.UpstreamAddresses(c)...)
 	}
-	if !exist {
+	if !exist || !originTask.AllowsRelayToken(info.TokenId) {
 		return service.TaskErrorWrapperLocal(errors.New("task_origin_not_exist"), "task_not_exist", http.StatusBadRequest)
 	}
 
@@ -242,6 +242,11 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 			return nil, service.TaskErrorWrapperLocal(err, "model_mapping_failed", http.StatusBadRequest)
 		}
 	}
+	if c.FullPath() == VideoGenerationPath {
+		if taskErr := prepareVideoGeneration(c, info); taskErr != nil {
+			return nil, taskErr
+		}
+	}
 	if taskErr := adaptor.ValidateRequestAndSetAction(c, info); taskErr != nil {
 		return nil, taskErr
 	}
@@ -359,6 +364,9 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 
 	// 7. 预扣费：首次尝试创建计费会话；重试时会话已存在，换到更贵的渠道要在
 	//    发起上游请求前补足预扣，余额不足就不发请求。
+	if apiErr := service.BeginVideoUsageRecord(c, info); apiErr != nil {
+		return nil, service.TaskErrorFromAPIError(apiErr)
+	}
 	if info.Billing != nil || !info.PriceData.FreeModel {
 		info.ForcePreConsume = true
 		if apiErr := service.PreConsumeBilling(c, info.PriceData.Quota, info); apiErr != nil {
@@ -511,7 +519,7 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 		taskResp = service.TaskErrorWrapper(err, "get_task_failed", http.StatusInternalServerError)
 		return
 	}
-	if !exist || !originTask.ResultRetrievable() {
+	if !exist || !originTask.AllowsRelayToken(c.GetInt("token_id")) || !originTask.ResultRetrievable() {
 		taskResp = service.TaskErrorWrapperLocal(errors.New("task_not_exist"), "task_not_exist", http.StatusBadRequest)
 		return
 	}

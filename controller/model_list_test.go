@@ -26,9 +26,8 @@ import (
 )
 
 type listModelsResponse struct {
-	Success bool               `json:"success"`
-	Data    []dto.OpenAIModels `json:"data"`
-	Object  string             `json:"object"`
+	Data   []modelCatalogEntry `json:"data"`
+	Object string              `json:"object"`
 }
 
 type userModelsResponse struct {
@@ -149,8 +148,8 @@ func decodeListModelsPayload(t *testing.T, recorder *httptest.ResponseRecorder) 
 	require.Equal(t, http.StatusOK, recorder.Code)
 	var payload listModelsResponse
 	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &payload))
-	require.True(t, payload.Success)
 	require.Equal(t, "list", payload.Object)
+	require.NotNil(t, payload.Data)
 	return payload
 }
 
@@ -160,7 +159,7 @@ func decodeListModelsResponse(t *testing.T, recorder *httptest.ResponseRecorder)
 	payload := decodeListModelsPayload(t, recorder)
 	ids := make(map[string]struct{}, len(payload.Data))
 	for _, item := range payload.Data {
-		ids[item.Id] = struct{}{}
+		ids[item.ID] = struct{}{}
 	}
 	return ids
 }
@@ -413,6 +412,16 @@ func TestListModelsIncludesTieredBillingModel(t *testing.T) {
 
 func TestListModelsUsesAdvancedCustomEndpointTypesFromPricingCache(t *testing.T) {
 	withSelfUseModeEnabled(t)
+	withTieredBillingConfig(t, map[string]string{
+		"gemini-3.5-flash": "tiered_expr",
+		"zz-dynamic-price": "tiered_expr",
+	}, map[string]string{
+		"gemini-3.5-flash": `tier("standard", p * 1.25 + c * 2 + cr * 0.1)`,
+		"zz-dynamic-price": `len <= 100 ? tier("short", p * 1) : tier("long", p * 2)`,
+	})
+	originalRatios := ratio_setting.GroupGroupRatio2JSONString()
+	require.NoError(t, ratio_setting.UpdateGroupGroupRatioByJSONString(`{"default":{"default":0.8}}`))
+	t.Cleanup(func() { require.NoError(t, ratio_setting.UpdateGroupGroupRatioByJSONString(originalRatios)) })
 	db := setupModelListControllerTestDB(t)
 
 	originalMemoryCacheEnabled := common.MemoryCacheEnabled
@@ -437,7 +446,7 @@ func TestListModelsUsesAdvancedCustomEndpointTypesFromPricingCache(t *testing.T)
 		Status: common.ChannelStatusEnabled,
 		Name:   "advanced-custom-channel",
 		Group:  "default",
-		Models: "gemini-3.5-flash",
+		Models: "gemini-3.5-flash,zz-dynamic-price",
 	}
 	channel.SetOtherSettings(dto.ChannelOtherSettings{
 		AdvancedCustom: &dto.AdvancedCustomConfig{
@@ -456,30 +465,62 @@ func TestListModelsUsesAdvancedCustomEndpointTypesFromPricingCache(t *testing.T)
 		},
 	})
 	require.NoError(t, db.Create(channel).Error)
-	require.NoError(t, db.Create(&model.Ability{
-		Group:     "default",
-		Model:     "gemini-3.5-flash",
-		ChannelId: 701,
-		Enabled:   true,
+	require.NoError(t, db.Create(&model.Channel{
+		Id: 702, Type: constant.ChannelTypeAnthropic, Key: "separate-group-key", Name: "separate-group",
+		Status: common.ChannelStatusEnabled, Group: "other", Models: "gemini-3.5-flash",
+	}).Error)
+	require.NoError(t, db.Create(&[]model.Ability{
+		{Group: "default", Model: "gemini-3.5-flash", ChannelId: 701, Enabled: true},
+		{Group: "default", Model: "zz-dynamic-price", ChannelId: 701, Enabled: true},
+		{Group: "other", Model: "gemini-3.5-flash", ChannelId: 702, Enabled: true},
 	}).Error)
 
 	model.InitChannelCache()
 	model.GetPricing()
 
-	recorder := httptest.NewRecorder()
-	ctx, _ := gin.CreateTestContext(recorder)
-	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
-	ctx.Set("id", 1003)
-
-	ListModels(ctx, constant.ChannelTypeOpenAI)
-
-	payload := decodeListModelsPayload(t, recorder)
-	require.Len(t, payload.Data, 1)
-	require.Equal(t, "gemini-3.5-flash", payload.Data[0].Id)
-	require.Equal(t, []constant.EndpointType{
-		constant.EndpointTypeOpenAI,
-		constant.EndpointTypeOpenAIResponse,
-	}, payload.Data[0].SupportedEndpointTypes)
+	list := func() map[string]modelCatalogEntry {
+		recorder := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(recorder)
+		ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+		ctx.Set("id", 1003)
+		ListModels(ctx, constant.ChannelTypeOpenAI)
+		payload := decodeListModelsPayload(t, recorder)
+		entries := make(map[string]modelCatalogEntry, len(payload.Data))
+		for _, entry := range payload.Data {
+			entries[entry.ID] = entry
+		}
+		return entries
+	}
+	entries := list()
+	require.Len(t, entries, 2)
+	entry := entries["gemini-3.5-flash"]
+	assert.Equal(t, "available", entry.Status)
+	assert.Equal(t, []string{"chat_completions", "responses"}, entry.Protocols)
+	assert.Equal(t, []string{"text"}, entry.Capabilities)
+	assert.True(t, entry.SupportsStream)
+	assert.True(t, entry.SupportsIdempotency)
+	assert.Contains(t, entry.SupportedParameters, "max_output_tokens")
+	assert.Positive(t, entry.Limits.MaxInputBytes)
+	assert.Nil(t, entry.Limits.ContextTokens)
+	assert.Equal(t, []modelCatalogRate{
+		{Metric: "input_tokens", UnitQuantity: 1_000_000, UnitPrice: "1.00000000", Currency: "USD", Qualifiers: map[string]string{}},
+		{Metric: "output_tokens", UnitQuantity: 1_000_000, UnitPrice: "1.60000000", Currency: "USD", Qualifiers: map[string]string{}},
+		{Metric: "cached_input_tokens", UnitQuantity: 1_000_000, UnitPrice: "0.08000000", Currency: "USD", Qualifiers: map[string]string{}},
+	}, entry.Prices)
+	assert.NotEmpty(t, entry.PriceVersion)
+	assert.Equal(t, entry.PriceVersion, list()[entry.ID].PriceVersion)
+	dynamic := entries["zz-dynamic-price"]
+	assert.Equal(t, "available", dynamic.Status)
+	assert.Equal(t, []modelCatalogRate{
+		{Metric: "input_tokens", UnitQuantity: 1_000_000, UnitPrice: "0.80000000", Currency: "USD", Qualifiers: map[string]string{"context_tokens_lte": "100"}},
+		{Metric: "input_tokens", UnitQuantity: 1_000_000, UnitPrice: "1.60000000", Currency: "USD", Qualifiers: map[string]string{"context_tokens_gt": "100"}},
+	}, dynamic.Prices)
+	assert.NotEmpty(t, dynamic.PriceVersion)
+	require.NoError(t, ratio_setting.UpdateGroupGroupRatioByJSONString(`{"default":{"default":0.5}}`))
+	updated := list()[entry.ID]
+	assert.NotEqual(t, entry.PriceVersion, updated.PriceVersion)
+	require.NotEmpty(t, updated.Prices)
+	assert.Equal(t, "0.62500000", updated.Prices[0].UnitPrice)
 }
 
 func TestListModelsTokenLimitIncludesTieredBillingModel(t *testing.T) {

@@ -67,11 +67,7 @@ func GetRequestBody(c *gin.Context) (io.Seeker, error) {
 		return nil, readErr.(error)
 	}
 
-	maxMB := constant.MaxRequestBodyMB
-	if maxMB <= 0 {
-		maxMB = 128 // 默认 128MB
-	}
-	maxBytes := int64(maxMB) << 20
+	maxBytes := RequestBodyLimitBytes()
 
 	contentLength := c.Request.ContentLength
 
@@ -81,7 +77,7 @@ func GetRequestBody(c *gin.Context) (io.Seeker, error) {
 
 	if err != nil {
 		if IsRequestBodyTooLargeError(err) {
-			err = errors.Wrap(ErrRequestBodyTooLarge, fmt.Sprintf("request body exceeds %d MB", maxMB))
+			err = errors.Wrap(ErrRequestBodyTooLarge, fmt.Sprintf("request body exceeds %d MB", maxBytes>>20))
 		}
 		c.Set(keyBodyReadError, err)
 		return nil, err
@@ -94,6 +90,14 @@ func GetRequestBody(c *gin.Context) (io.Seeker, error) {
 }
 
 // GetBodyStorage 获取请求体存储对象（用于需要多次读取的场景）
+func RequestBodyLimitBytes() int64 {
+	maxMB := constant.MaxRequestBodyMB
+	if maxMB <= 0 {
+		maxMB = 128
+	}
+	return int64(maxMB) << 20
+}
+
 func GetBodyStorage(c *gin.Context) (BodyStorage, error) {
 	seeker, err := GetRequestBody(c)
 	if err != nil {

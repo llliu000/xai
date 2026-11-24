@@ -141,6 +141,23 @@ func TestPresentTaskSubmissionFallbackUsesPersistedPublicID(t *testing.T) {
 	}`, recorder.Body.String())
 }
 
+func TestVideoGenerationReceiptUsesTheOriginalRequestAndTask(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/video/generations", nil)
+	presentTaskSubmission(c, &taskSubmissionOutcome{
+		Task:      &model.Task{TaskID: "task_public", CreatedAt: 456, Status: model.TaskStatusInProgress},
+		RelayInfo: &relaycommon.RelayInfo{RequestId: "request_original", OriginModelName: "video-model"},
+	})
+	assert.Equal(t, http.StatusAccepted, recorder.Code)
+	assert.JSONEq(t, `{
+		"task_id":"task_public","request_id":"request_original","object":"video.task","model":"video-model",
+		"status":"running","created_at":456,"updated_at":456,"progress":null,"stage":null,"queue_position":null,
+		"estimated_remaining_seconds":null,"started_at":null,"completed_at":null,"result_expires_at":null,"results":[],
+		"error":null,"billing":{"status":"pending","currency":"USD","amount":null,"record_id":null},"metadata":{}
+	}`, recorder.Body.String())
+}
+
 func TestPresentTaskSubmissionUsesHostOpenAIVideoCreateReceipt(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)

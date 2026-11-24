@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -34,6 +35,28 @@ type Token struct {
 	AllowUserQuotaQuery bool   `json:"allow_user_quota_query"`
 	CacheExpiresAt      int64  `json:"-" gorm:"-"`
 	CacheMAC            string `json:"-" gorm:"-"`
+}
+
+const ManagedRelayKeyPrefix = "horo_"
+
+type ManagedTokenRevision struct {
+	TokenID int `gorm:"primaryKey;autoIncrement:false"`
+	Version int `gorm:"not null"`
+}
+
+var ErrManagedTokenVersion = errors.New("token version conflict")
+var ErrManagedTokenInactive = errors.New("token expired or exhausted")
+
+type ManagedToken struct {
+	Token
+	Version int
+}
+
+func managedTokenQuery(ctx context.Context, userID int) *gorm.DB {
+	return DB.WithContext(ctx).Unscoped().Model(&Token{}).
+		Select("tokens.*, COALESCE(managed_token_revisions.version, 1) AS version").
+		Joins("LEFT JOIN managed_token_revisions ON managed_token_revisions.token_id = tokens.id").
+		Where("tokens.user_id = ?", userID)
 }
 
 func (token *Token) GetAutoGroups() ([]string, error) {
@@ -112,6 +135,42 @@ func GetAllUserTokens(userId int, startIdx int, num int) ([]*Token, error) {
 	var err error
 	err = DB.Where("user_id = ?", userId).Order("id desc").Limit(num).Offset(startIdx).Find(&tokens).Error
 	return tokens, err
+}
+
+// ListManagedTokens includes revoked tokens for the owning account only.
+func ListManagedTokens(ctx context.Context, userID int, keyword, status string, before, limit int, now int64) ([]ManagedToken, error) {
+	query := managedTokenQuery(ctx, userID)
+	if before > 0 {
+		query = query.Where("id < ?", before)
+	}
+	if keyword != "" {
+		literal := strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(keyword)
+		query = query.Where("name LIKE ? ESCAPE '!'", "%"+literal+"%")
+	}
+	if status == "revoked" {
+		query = query.Where("deleted_at IS NOT NULL")
+	} else if status != "" {
+		query = query.Where("deleted_at IS NULL")
+		switch status {
+		case "disabled":
+			query = query.Where("status = ?", common.TokenStatusDisabled)
+		case "expired":
+			query = query.Where("status <> ? AND (status = ? OR (expired_time <> -1 AND expired_time <= ?))", common.TokenStatusDisabled, common.TokenStatusExpired, now)
+		case "exhausted":
+			query = query.Where("(expired_time = -1 OR expired_time > ?) AND (status = ? OR (status = ? AND unlimited_quota = ? AND remain_quota <= 0))", now, common.TokenStatusExhausted, common.TokenStatusEnabled, false)
+		case "active":
+			query = query.Where("status = ? AND (expired_time = -1 OR expired_time > ?) AND (unlimited_quota = ? OR remain_quota > 0)", common.TokenStatusEnabled, now, true)
+		}
+	}
+	var tokens []ManagedToken
+	err := query.Order("id DESC").Limit(limit).Find(&tokens).Error
+	return tokens, err
+}
+
+func GetManagedToken(ctx context.Context, userID, tokenID int) (*ManagedToken, error) {
+	var token ManagedToken
+	err := managedTokenQuery(ctx, userID).Where("tokens.id = ?", tokenID).Take(&token).Error
+	return &token, err
 }
 
 // sanitizeLikePattern 校验并清洗用户输入的 LIKE 搜索模式。
@@ -232,7 +291,7 @@ func ValidateUserToken(key string) (token *Token, err error) {
 			token.Status != common.TokenStatusEnabled {
 			return token, ErrTokenInvalid
 		}
-		if token.ExpiredTime != -1 && token.ExpiredTime < common.GetTimestamp() {
+		if token.ExpiredTime != -1 && token.ExpiredTime <= common.GetTimestamp() {
 			if !common.RedisEnabled {
 				token.Status = common.TokenStatusExpired
 				err := token.SelectUpdate()
@@ -329,6 +388,45 @@ func (token *Token) SelectUpdate() (err error) {
 	return DB.Model(token).Select("accessed_time", "status").Updates(token).Error
 }
 
+// UpdateManagedToken serializes management changes on the token row and
+// commits the version with the mutation. Inference quota writes do not change it.
+func (token *Token) UpdateManagedToken(ctx context.Context, version int, fields map[string]any, revoke bool) error {
+	if err := invalidateTokenCacheForMutation(token.Key); err != nil {
+		return err
+	}
+	return DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var current Token
+		if err := lockForUpdate(tx).Where("id = ? AND user_id = ?", token.Id, token.UserId).Take(&current).Error; err != nil {
+			return err
+		}
+		revision := ManagedTokenRevision{TokenID: token.Id, Version: 1}
+		if err := tx.Where("token_id = ?", token.Id).Take(&revision).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		if revision.Version != version {
+			return ErrManagedTokenVersion
+		}
+		if fields["status"] == common.TokenStatusEnabled &&
+			(current.ExpiredTime != -1 && current.ExpiredTime <= common.GetTimestamp() || !current.UnlimitedQuota && current.RemainQuota <= 0) {
+			return ErrManagedTokenInactive
+		}
+		var err error
+		if revoke {
+			err = tx.Delete(&current).Error
+		} else {
+			err = tx.Model(&current).Updates(fields).Error
+		}
+		if err != nil {
+			return err
+		}
+		revision.Version++
+		if err := tx.Save(&revision).Error; err != nil {
+			return err
+		}
+		return tx.Unscoped().Where("id = ? AND user_id = ?", token.Id, token.UserId).Take(token).Error
+	})
+}
+
 func (token *Token) Delete() (err error) {
 	if cacheErr := invalidateTokenCacheForMutation(token.Key); cacheErr != nil {
 		common.SysLog(common.LogText("failed to invalidate token cache before delete: %s", cacheErr.Error()))
@@ -379,7 +477,7 @@ func DeleteTokenById(id int, userId int) (err error) {
 	return token.Delete()
 }
 
-func IncreaseTokenQuota(tokenId int, key string, quota int) (err error) {
+func IncreaseTokenQuota(tokenId int, key string, quota int, immediate ...bool) (err error) {
 	if quota < 0 {
 		return errors.New("quota cannot be negative")
 	}
@@ -392,7 +490,7 @@ func IncreaseTokenQuota(tokenId int, key string, quota int) (err error) {
 			}
 		})
 	}
-	if common.BatchUpdateEnabled {
+	if common.BatchUpdateEnabled && (len(immediate) == 0 || !immediate[0]) {
 		addNewRecord(BatchUpdateTypeTokenQuota, tokenId, quota)
 		return nil
 	}
@@ -410,7 +508,7 @@ func increaseTokenQuota(id int, quota int) (err error) {
 	return err
 }
 
-func DecreaseTokenQuota(id int, key string, quota int) (err error) {
+func DecreaseTokenQuota(id int, key string, quota int, immediate ...bool) (err error) {
 	if quota < 0 {
 		return errors.New("quota cannot be negative")
 	}
@@ -421,7 +519,7 @@ func DecreaseTokenQuota(id int, key string, quota int) (err error) {
 			}
 		})
 	}
-	if common.BatchUpdateEnabled {
+	if common.BatchUpdateEnabled && (len(immediate) == 0 || !immediate[0]) {
 		addNewRecord(BatchUpdateTypeTokenQuota, id, -quota)
 		return nil
 	}

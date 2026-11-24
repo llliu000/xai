@@ -133,6 +133,9 @@ func VideoProxy(c *gin.Context) {
 }
 
 func proxyTaskMedia(c *gin.Context, task *model.Task, descriptor *relaychannel.TaskContentRequest) error {
+	if upscaleArtifactExpired(task) {
+		return &taskMediaProxyError{status: http.StatusGone, code: "artifact_gone", message: "Artifact content is no longer available"}
+	}
 	if descriptor == nil {
 		return &taskMediaProxyError{
 			status: http.StatusInternalServerError, code: "artifact_plugin_error",
@@ -232,7 +235,8 @@ func proxyTaskMedia(c *gin.Context, task *model.Task, descriptor *relaychannel.T
 			trustedOrigin = channelURL
 		}
 	}
-	if trustedOrigin == nil {
+	upscale := task.Platform == constant.MediaKitPlatform
+	if trustedOrigin == nil && !upscale {
 		if err := validateTaskMediaURL(rawURL, proxy); err != nil {
 			return &taskMediaProxyError{
 				status: http.StatusBadGateway, code: "artifact_request_rejected",
@@ -242,7 +246,12 @@ func proxyTaskMedia(c *gin.Context, task *model.Task, descriptor *relaychannel.T
 	}
 
 	client := service.GetSSRFProtectedHTTPClient()
-	if trustedOrigin != nil || proxy != "" {
+	if upscale {
+		client, err = service.PublicVideoMediaClient(rawURL)
+		if err != nil {
+			return &taskMediaProxyError{status: http.StatusBadGateway, code: "artifact_request_rejected", message: "Artifact request was rejected", err: err}
+		}
+	} else if trustedOrigin != nil || proxy != "" {
 		client, err = service.GetHttpClientWithProxySettings(proxy, setting)
 		if err != nil {
 			return &taskMediaProxyError{
@@ -277,7 +286,9 @@ func proxyTaskMedia(c *gin.Context, task *model.Task, descriptor *relaychannel.T
 		req.Header.Set(name, value)
 	}
 
-	client = taskMediaRedirectClient(client, proxy, c, clientHeaders, descriptor.Credentialless, trustedOrigin)
+	if !upscale {
+		client = taskMediaRedirectClient(client, proxy, c, clientHeaders, descriptor.Credentialless, trustedOrigin)
+	}
 	clientWithoutBodyTimeout := *client
 	clientWithoutBodyTimeout.Timeout = 0
 	resp, err := doTaskMediaRequest(&clientWithoutBodyTimeout, req, taskMediaResponseHeaderTimeout)

@@ -183,7 +183,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		defer stopKeepAlive()
 	}
 
-	if newAPIError = relay.PrepareRequestBilling(c, relayInfo); newAPIError != nil {
+	if newAPIError = relay.PrepareRequestBilling(c, relayInfo, true); newAPIError != nil {
 		return
 	}
 	defer func() {
@@ -792,6 +792,15 @@ func executeTaskSubmissionWith(
 	stage = "insert"
 	task := model.InitTask(result.Platform, relayInfo)
 	task.PrivateData.Execution = service.TaskExecutionSnapshotFromContext(c)
+	if snapshot := task.PrivateData.Execution; snapshot != nil && c.FullPath() == relay.VideoGenerationPath {
+		snapshot.VideoMetadata, _ = common.GetContextKeyType[map[string]string](c, relay.VideoGenerationMetadataKey)
+	}
+	if snapshot := task.PrivateData.Execution; snapshot != nil && c.FullPath() == constant.UpscaleTaskPath {
+		setUpscaleTaskMetadata(c, snapshot)
+		if relayInfo.ChannelIsMultiKey {
+			task.PrivateData.Key = relayInfo.ApiKey
+		}
+	}
 	task.PrivateData.UpstreamTaskID = result.UpstreamTaskID
 	task.PrivateData.BillingSource = relayInfo.BillingSource
 	task.PrivateData.SubscriptionId = relayInfo.SubscriptionId
@@ -896,6 +905,7 @@ func executeTaskSubmissionWith(
 		policy.AddEvent(service.PolicyEvent{Decision: service.PolicyDecision{Action: "stop", Reason: "task_failed", Source: "upstream"}})
 	}
 	service.LogTaskConsumption(c, relayInfo, task)
+	service.ConfirmVideoUsageCharge(c, relayInfo, task)
 	diagnostics.complete(task, result.Quota)
 
 	return &taskSubmissionOutcome{Result: result, Task: task, RelayInfo: relayInfo}, nil
@@ -914,6 +924,11 @@ func presentTaskSubmission(c *gin.Context, outcome *taskSubmissionOutcome) {
 	}
 	if ratiosJSON, err := common.Marshal(otherRatios); err == nil {
 		c.Header("X-New-Api-Other-Ratios", string(ratiosJSON))
+	}
+	if c.Request != nil && (c.Request.URL.Path == relay.VideoGenerationPath || c.FullPath() == constant.UpscaleTaskPath) {
+		diagnostics.present(outcome.Task, "video_generation_create")
+		writeVideoTask(c, http.StatusAccepted, outcome.Task, outcome.RelayInfo.RequestId, outcome.RelayInfo.OriginModelName)
+		return
 	}
 	if pinnedValue, exists := c.Get(pluginruntime.ContextKeyPinnedRoute); exists {
 		if pinned, ok := pinnedValue.(pluginruntime.PinnedRoute); ok && pinned.Plugin != nil && pinned.Route.Render != "" {
@@ -970,6 +985,15 @@ func respondTaskSubmissionError(c *gin.Context, taskErr *taskdto.TaskError) {
 	if c.Writer.Written() {
 		return
 	}
+	if c.FullPath() == relay.VideoGenerationPath || c.FullPath() == constant.UpscaleTaskPath {
+		dispatch := "unknown"
+		switch taskErr.Code {
+		case "invalid_request", "unknown_parameter", "invalid_parameter_combination", "unsupported_parameter", "unsupported_media_type", "payload_too_large":
+			dispatch = "not_sent"
+		}
+		writeVideoTaskError(c, taskErr.StatusCode, taskErr.Code, taskErr.Message, dispatch)
+		return
+	}
 	if middleware.RespondTaskPluginError(c, taskErr) {
 		return
 	}
@@ -1002,6 +1026,8 @@ func decideTaskRetry(c *gin.Context, taskErr *taskdto.TaskError, retryTimes int)
 	switch {
 	case taskErr == nil:
 		stop.Reason = "request_completed"
+	case common.GetContextKeyBool(c, constant.ContextKeyIdempotentRelay):
+		stop.Reason = "idempotent_request"
 	case taskErr.NoRetry:
 		stop.Reason = "task_accepted"
 	case requestplugin.Stopped(taskErr):

@@ -26,6 +26,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/i18n"
+	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/jsplugin"
 	"github.com/QuantumNous/new-api/relaykit/dto"
@@ -38,6 +39,7 @@ import (
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -135,7 +137,7 @@ func newRelayHarness(t *testing.T) *relayHarness {
 	require.NoError(t, i18n.Init())
 	ratio_setting.InitRatioSettings()
 	require.NoError(t, model.DB.AutoMigrate(&model.Channel{}, &model.Log{}, &model.Option{}, &model.Task{}, &model.QuotaData{},
-		&model.UserSubscription{}, &model.SubscriptionPreConsumeRecord{}, &model.UserAccessToken{}))
+		&model.UserSubscription{}, &model.SubscriptionPreConsumeRecord{}, &model.UserAccessToken{}, &model.UsageRecord{}, &model.RelayIdempotency{}))
 	previousMemory, previousLog, previousBatch, previousTimeout := common.MemoryCacheEnabled, common.LogConsumeEnabled, common.BatchUpdateEnabled, constant.StreamingTimeout
 	common.MemoryCacheEnabled, common.LogConsumeEnabled, common.BatchUpdateEnabled, constant.StreamingTimeout = true, true, false, 30
 	t.Cleanup(func() {
@@ -147,6 +149,7 @@ func newRelayHarness(t *testing.T) *relayHarness {
 	token := model.Token{UserId: user.Id, Key: relayTestToken, Status: common.TokenStatusEnabled, ExpiredTime: -1, RemainQuota: 100_000_000, Group: "default"}
 	require.NoError(t, model.DB.Create(&token).Error)
 	engine := gin.New()
+	engine.Use(middleware.RequestId())
 	SetRelayRouter(engine)
 	SetTaskPluginProtocolRouter(engine)
 	harness := &relayHarness{upstream: newFakeUpstream(t), userID: user.Id, tokenID: token.Id}
@@ -194,7 +197,7 @@ func (h *relayHarness) post(t *testing.T, path, body string) relayOutcome {
 	return h.send(t, path, "application/json", body)
 }
 
-func (h *relayHarness) send(t *testing.T, path, contentType, body string) relayOutcome {
+func (h *relayHarness) send(t *testing.T, path, contentType, body string, headers ...http.Header) relayOutcome {
 	t.Helper()
 	var before model.Token
 	require.NoError(t, model.DB.First(&before, h.tokenID).Error)
@@ -206,6 +209,9 @@ func (h *relayHarness) send(t *testing.T, path, contentType, body string) relayO
 	request.Header.Set("Authorization", "Bearer "+relayTestToken)
 	request.Header.Set("Content-Type", contentType)
 	request.Header.Set("X-Client-Trace", "trace-1")
+	for _, header := range headers {
+		maps.Copy(request.Header, header)
+	}
 	response, err := http.DefaultClient.Do(request)
 	require.NoError(t, err)
 	defer response.Body.Close()
@@ -233,6 +239,154 @@ var volatileReplyFields = regexp.MustCompile(`"(id|created|created_at|response_i
 
 func normalizedReply(text string) string {
 	return volatileReplyFields.ReplaceAllString(text, `"$1":0`)
+}
+
+func TestChatUsageRecordUsesTheAmountActuallySettled(t *testing.T) {
+	harness := newRelayHarness(t)
+	harness.install(t, harness.newChannel(constant.ChannelTypeOpenAI, "sk-upstream"))
+	common.BatchUpdateEnabled = true
+	outcome := harness.post(t, "/v1/chat/completions", relayTestBody)
+	require.Equal(t, http.StatusOK, outcome.status, outcome.body)
+	require.Positive(t, outcome.quota)
+	requestID := outcome.header.Get("X-Request-Id")
+	require.NotEmpty(t, requestID)
+	var revisions []model.UsageRecord
+	require.NoError(t, model.DB.Where("request_id = ?", requestID).Order("version").Find(&revisions).Error)
+	require.Len(t, revisions, 2)
+	assert.Equal(t, "pending", revisions[0].Status)
+	assert.Nil(t, revisions[0].GrossAmount)
+	assert.Equal(t, revisions[0].RecordID, revisions[1].RecordID)
+	assert.Equal(t, "settled", revisions[1].Status)
+	assert.Equal(t, "succeeded", revisions[1].RequestStatus)
+	assert.Equal(t, harness.tokenID, revisions[1].TokenID)
+	require.NotNil(t, revisions[1].NetAmount)
+	expectedUSD := decimal.NewFromInt(int64(outcome.quota)).DivRound(decimal.NewFromFloat(common.QuotaPerUnit), 8)
+	assert.Equal(t, expectedUSD.StringFixed(8), *revisions[1].NetAmount)
+	assert.NotEmpty(t, revisions[1].PriceVersion)
+	var quantities []model.UsageQuantity
+	require.NoError(t, common.Unmarshal(revisions[1].Quantities, &quantities))
+	assert.NotEmpty(t, quantities)
+}
+
+func TestHoroMateImageProfileReplaysSettledReceipt(t *testing.T) {
+	harness := newRelayHarness(t)
+	key := model.ManagedRelayKeyPrefix + "testprofilekey"
+	require.NoError(t, model.DB.Model(&model.Token{}).Where("id = ?", harness.tokenID).Update("key", key).Error)
+	channel := harness.newChannel(constant.ChannelTypeOpenAI, "sk-upstream")
+	channel.Models = "gpt-image-1"
+	harness.install(t, channel)
+	harness.upstream.respond = func(w http.ResponseWriter, _ int, _ capturedRequest) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"created":1730000000,"data":[{"b64_json":"aW1hZ2U="}],"usage":{"input_tokens":100,"output_tokens":100,"total_tokens":200}}`)
+	}
+	headers := http.Header{"Authorization": {"Bearer sk-" + key}}
+	const path = "/v1/images/generations"
+	const body = `{"model":"gpt-image-1","prompt":"a book"}`
+	missing := harness.send(t, path, "application/json", body, headers)
+	assert.Equal(t, http.StatusBadRequest, missing.status)
+	headers.Set("Idempotency-Key", "bad-image-count-key")
+	invalid := harness.send(t, path, "application/json", `{"model":"gpt-image-1","prompt":"a book","n":2}`, headers)
+	assert.Equal(t, http.StatusUnprocessableEntity, invalid.status)
+	assert.Empty(t, harness.upstream.captured())
+	headers.Set("Idempotency-Key", "valid-image-count-key")
+	image := harness.send(t, path, "application/json", body, headers)
+	require.Equal(t, http.StatusOK, image.status, image.body)
+	assert.Equal(t, image.header.Get("X-Request-Id"), gjson.Get(image.body, "request_id").String())
+	assert.Equal(t, "gpt-image-1", gjson.Get(image.body, "model").String())
+	assert.Equal(t, "aW1hZ2U=", gjson.Get(image.body, "data.0.b64_json").String())
+	assert.Equal(t, "settled", gjson.Get(image.body, "billing.status").String())
+	replay := harness.send(t, path, "application/json", body, headers)
+	assert.JSONEq(t, image.body, replay.body)
+	assert.Zero(t, replay.quota)
+	assert.Len(t, harness.upstream.captured(), 1)
+}
+
+func TestChatIdempotencyReplaysJSONWithoutChargingOrResubmitting(t *testing.T) {
+	harness := newRelayHarness(t)
+	harness.install(t, harness.newChannel(constant.ChannelTypeOpenAI, "sk-upstream"))
+	const path = "/v1/chat/completions"
+	request := func(key, body string) (*http.Response, error) {
+		req, err := http.NewRequest(http.MethodPost, harness.gateway.URL+path, strings.NewReader(body))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", "Bearer "+relayTestToken)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Idempotency-Key", key)
+		return http.DefaultClient.Do(req)
+	}
+	read := func(resp *http.Response, err error) (int, string, string) {
+		t.Helper()
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		return resp.StatusCode, resp.Header.Get("X-Request-Id"), string(body)
+	}
+	started, release := make(chan struct{}), make(chan struct{})
+	var releaseOnce sync.Once
+	unblock := func() { releaseOnce.Do(func() { close(release) }) }
+	defer unblock()
+	harness.upstream.respond = func(w http.ResponseWriter, attempt int, req capturedRequest) {
+		if attempt == 1 {
+			close(started)
+		}
+		<-release
+		writeChat(w, req)
+	}
+	type firstResponse struct {
+		response *http.Response
+		err      error
+	}
+	const key = "chat-replay-test-key"
+	first := make(chan firstResponse, 1)
+	go func() {
+		resp, err := request(key, relayTestBody)
+		first <- firstResponse{resp, err}
+	}()
+	select {
+	case <-started:
+	case early := <-first:
+		status, _, body := read(early.response, early.err)
+		t.Fatalf("request did not reach upstream: %d %s", status, body)
+	case <-time.After(5 * time.Second):
+		t.Fatal("request did not reach upstream")
+	}
+	status, inProgressID, body := read(request(key, relayTestBody))
+	assert.Equal(t, http.StatusConflict, status)
+	assert.Equal(t, "request_in_progress", gjson.Get(body, "error.code").Str)
+	unblock()
+	result := <-first
+	status, originalID, original := read(result.response, result.err)
+	require.Equal(t, http.StatusOK, status, original)
+	harness.waitIdle(t)
+
+	reordered := `{"max_tokens":32, "messages":[{"content":"hello there","role":"user"}], "model":"` + relayTestModel + `"}`
+	status, replayID, replay := read(request(key, reordered))
+	require.Equal(t, http.StatusOK, status, replay)
+	assert.Equal(t, original, replay)
+	assert.Equal(t, originalID, replayID)
+	assert.Equal(t, originalID, inProgressID)
+	status, _, body = read(request(key, strings.ReplaceAll(reordered, "hello there", "new input")))
+	assert.Equal(t, http.StatusConflict, status)
+	assert.Equal(t, "idempotency_conflict", gjson.Get(body, "error.code").Str)
+	assert.Len(t, harness.upstream.captured(), 1)
+	var count int64
+	require.NoError(t, model.DB.Model(&model.UsageRecord{}).Where("account_id = ?", harness.userID).Count(&count).Error)
+	assert.EqualValues(t, 2, count)
+
+	harness.upstream.respond = func(w http.ResponseWriter, _ int, _ capturedRequest) {
+		w.WriteHeader(http.StatusBadGateway)
+	}
+	const failedKey = "chat-replay-failed-key"
+	status, failedID, _ := read(request(failedKey, relayTestBody))
+	assert.GreaterOrEqual(t, status, 500)
+	harness.waitIdle(t)
+	status, retryID, body := read(request(failedKey, relayTestBody))
+	assert.Equal(t, http.StatusConflict, status)
+	assert.Equal(t, "result_unavailable", gjson.Get(body, "error.code").Str)
+	assert.Equal(t, failedID, retryID)
+	assert.Len(t, harness.upstream.captured(), 2)
 }
 
 // A relay-only plugin is an Advanced Custom channel under another name: the
@@ -1865,7 +2019,8 @@ func TestPluginConverterMultipartRequests(t *testing.T) {
 		harness.install(t, provider)
 		harness.upstream.reset()
 
-		got := harness.send(t, "/v1/images/edits", contentType, body)
+		idempotency := http.Header{"Idempotency-Key": {"image-edit-replay-key"}}
+		got := harness.send(t, "/v1/images/edits", contentType, body, idempotency)
 
 		require.Equal(t, http.StatusOK, got.status, got.body)
 		requests := harness.upstream.captured()
@@ -1875,6 +2030,14 @@ func TestPluginConverterMultipartRequests(t *testing.T) {
 		assert.Equal(t, normalizedReply(want.body), normalizedReply(got.body))
 		assert.Positive(t, got.quota)
 		assertBilledAlike(t, want, got)
+		retryType, retryBody := multipartRequest(t, map[string]string{"model": relayTestModel, "prompt": "a hat", "n": "1", "shape": "edit"}, images...)
+		require.NotEqual(t, contentType, retryType)
+		replay := harness.send(t, "/v1/images/edits", retryType, retryBody, idempotency)
+		require.Equal(t, http.StatusOK, replay.status, replay.body)
+		assert.Equal(t, got.body, replay.body)
+		assert.Equal(t, got.header.Get("X-Request-Id"), replay.header.Get("X-Request-Id"))
+		assert.Zero(t, replay.quota)
+		assert.Len(t, harness.upstream.captured(), 1)
 	})
 }
 

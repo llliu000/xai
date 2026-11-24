@@ -539,6 +539,13 @@ func TokenAuth() func(c *gin.Context) {
 		if strings.Contains(c.Request.URL.Path, "/v1/messages") || strings.Contains(c.Request.URL.Path, "/v1/models") {
 			anthropicKey := c.Request.Header.Get("x-api-key")
 			if anthropicKey != "" {
+				if c.Request.URL.Path == "/v1/messages" && c.Request.Header.Get("Authorization") != "" {
+					bearer, ok := authorizationToken(c.Request.Header.Get("Authorization"))
+					if !ok || strings.TrimPrefix(bearer, "sk-") != strings.TrimPrefix(anthropicKey, "sk-") {
+						abortRelayIdempotency(c, http.StatusBadRequest, "invalid_request", "Authorization and x-api-key do not match", "not_sent")
+						return
+					}
+				}
 				c.Request.Header.Set("Authorization", "Bearer "+anthropicKey)
 			}
 		}

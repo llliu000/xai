@@ -298,8 +298,10 @@ func SetApiRouter(router *gin.Engine) {
 			tokenRoute.GET("/auto-groups", controller.GetTokenAutoGroups)
 			tokenRoute.GET("/:id", controller.GetToken)
 			tokenRoute.POST("/:id/key", middleware.CriticalRateLimit(), middleware.DisableCache(), controller.GetTokenKey)
-			tokenRoute.POST("/", controller.AddToken)
+			tokenRoute.POST("/", middleware.RelayIdempotency(), controller.AddToken)
 			tokenRoute.PUT("/", controller.UpdateToken)
+			tokenRoute.PUT("/:id", middleware.RelayIdempotency(), controller.UpdateTokenSettings)
+			tokenRoute.PUT("/:id/status", middleware.RelayIdempotency(), controller.ChangeTokenStatus)
 			tokenRoute.DELETE("/:id", controller.DeleteToken)
 			tokenRoute.POST("/batch", controller.DeleteTokenBatch)
 			tokenRoute.POST("/batch/keys", middleware.CriticalRateLimit(), middleware.DisableCache(), controller.GetTokenKeysBatch)
@@ -308,6 +310,10 @@ func SetApiRouter(router *gin.Engine) {
 		usageRoute := apiRouter.Group("/usage")
 		usageRoute.Use(middleware.CORS(), middleware.CriticalRateLimit())
 		{
+			recordsRoute := usageRoute.Group("/records", middleware.DisableCache(), middleware.AdminAuth())
+			recordsRoute.GET("", controller.ListUsageRecords)
+			recordsRoute.GET("/:record_id", controller.GetUsageRecord)
+
 			tokenUsageRoute := usageRoute.Group("/token")
 			tokenUsageRoute.Use(middleware.TokenAuthReadOnly())
 			{

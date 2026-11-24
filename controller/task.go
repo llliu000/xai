@@ -42,7 +42,7 @@ func GetTask(c *gin.Context) {
 		videoProxyError(c, http.StatusInternalServerError, "server_error", "Failed to query task")
 		return
 	}
-	if !exists {
+	if !exists || !task.AllowsRelayToken(c.GetInt("token_id")) {
 		videoProxyError(c, http.StatusNotFound, "invalid_request_error", "Task not found")
 		return
 	}
@@ -71,7 +71,7 @@ func GetTaskArtifacts(c *gin.Context) {
 		writeTaskArtifactError(c, http.StatusInternalServerError, "artifact_internal_error", "Failed to query task")
 		return
 	}
-	if !exists || task == nil {
+	if !exists || task == nil || !task.AllowsRelayToken(c.GetInt("token_id")) {
 		writeTaskArtifactError(c, http.StatusNotFound, "artifact_not_found", "Task or artifact not found")
 		return
 	}
@@ -263,6 +263,7 @@ func legacyVideoAvailable(task *model.Task) bool {
 		constant.TaskActionTextToVideo,
 		constant.TaskActionFirstTailToVideo,
 		constant.TaskActionReferenceToVideo,
+		constant.TaskActionUpscaleVideo,
 		constant.TaskActionRemix:
 		return true
 	default:
@@ -285,7 +286,11 @@ func getTaskForArtifactRequest(c *gin.Context, taskID string) (*model.Task, bool
 	if c.GetInt("token_id") == 0 && c.GetInt("role") >= common.RoleAdminUser {
 		return model.GetByOnlyTaskId(taskID)
 	}
-	return model.GetByTaskId(c.GetInt("id"), taskID)
+	task, exists, err := model.GetByTaskId(c.GetInt("id"), taskID)
+	if exists && c.GetInt("token_id") > 0 && !task.AllowsRelayToken(c.GetInt("token_id")) {
+		return nil, false, nil
+	}
+	return task, exists, err
 }
 
 func writeTaskArtifactProjectionError(c *gin.Context, err error) {

@@ -1419,6 +1419,125 @@ func (m *mockAdaptor) AdjustBillingOnComplete(_ *model.Task, _ *relaycommon.Task
 	return m.adjustReturn
 }
 
+func TestVideoUsageRecordFollowsTaskBilling(t *testing.T) {
+	require.NoError(t, model.DB.AutoMigrate(&model.UsageRecord{}))
+	for _, tc := range []struct {
+		name                string
+		terminal            model.TaskStatus
+		adjustedQuota       int
+		terminalBeforeAck   bool
+		failedFunding       bool
+		status, refund, net string
+	}{
+		{name: "success", terminal: model.TaskStatusSuccess, status: "settled", refund: "0.00000000", net: "0.02000000"},
+		{name: "refund", terminal: model.TaskStatusFailure, terminalBeforeAck: true, status: "refunded", refund: "0.02000000", net: "0.00000000"},
+		{name: "partial", terminal: model.TaskStatusSuccess, adjustedQuota: 5000, status: "partially_refunded", refund: "0.01000000", net: "0.01000000"},
+		{name: "more usage", terminal: model.TaskStatusSuccess, adjustedQuota: 15000, status: "settled", refund: "0.00000000", net: "0.03000000"},
+		{name: "unconfirmed refund", terminal: model.TaskStatusFailure, failedFunding: true, status: "pending"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			truncate(t)
+			const userID, tokenID, channelID = 1, 2, 3
+			const balance, submitted = 100000, 10000
+			seedUser(t, userID, balance)
+			seedToken(t, tokenID, userID, "video-usage-token", balance)
+			seedChannel(t, channelID)
+			requestID := model.GenerateTaskID()
+			task := makeTask(userID, channelID, submitted, tokenID, BillingSourceWallet, 0)
+			task.TaskID = model.GenerateTaskID()
+			info := &relaycommon.RelayInfo{
+				RequestId: requestID, OriginModelName: taskModelName(task),
+				UserId: userID, TokenId: tokenID, TokenKey: "video-usage-token", ForcePreConsume: true,
+				TaskRelayInfo: &relaycommon.TaskRelayInfo{PublicTaskID: task.TaskID},
+				PriceData:     types.PriceData{ModelPrice: 0.02, Quota: submitted},
+			}
+			info.UserSetting.BillingPreference = "wallet_only"
+			ctx := context.Background()
+			lookup := func() model.UsageRecord {
+				record, err := model.GetUsageRecord(ctx, userID, "bill_"+requestID)
+				require.NoError(t, err)
+				return record
+			}
+			assertPending := func() {
+				record := lookup()
+				assert.Equal(t, 1, record.Version)
+				assert.Equal(t, "pending", record.Status)
+				assert.Nil(t, record.GrossAmount)
+				assert.Nil(t, record.RefundAmount)
+				assert.Nil(t, record.NetAmount)
+			}
+			engine := gin.New()
+			engine.POST(videoGenerationUsagePath, func(c *gin.Context) {
+				c.Set(common.RequestIdKey, requestID)
+				require.Nil(t, BeginVideoUsageRecord(c, info))
+				require.Nil(t, BeginVideoUsageRecord(c, info)) // Channel retry.
+				assertPending()
+				require.Nil(t, PreConsumeBilling(c, submitted, info))
+				task.PrivateData.Execution = TaskExecutionSnapshotFromContext(c)
+				require.NoError(t, task.Insert())
+				require.NoError(t, SettleBilling(c, info, submitted))
+				seedChargedAccounting(t, userID, channelID, tokenID, submitted, 1)
+
+				if !tc.terminalBeforeAck {
+					ConfirmVideoUsageCharge(c, info, task)
+					assertPending()
+				}
+				polled, found, err := model.GetByTaskId(userID, task.TaskID)
+				require.NoError(t, err)
+				require.True(t, found)
+				if tc.failedFunding {
+					polled.PrivateData.BillingSource = BillingSourceSubscription
+					polled.PrivateData.SubscriptionId = 100
+				}
+				previous := polled.Status
+				polled.Status = tc.terminal
+				won, err := polled.UpdateWithStatus(previous)
+				require.NoError(t, err)
+				require.True(t, won)
+				finalizeTerminalTask(ctx, &mockAdaptor{adjustReturn: tc.adjustedQuota}, polled, &relaycommon.TaskInfo{Status: string(tc.terminal)})
+				if tc.terminalBeforeAck {
+					assertPending()
+					ConfirmVideoUsageCharge(c, info, task)
+				}
+				// Repeating the accounting confirmation does not append another revision.
+				ConfirmVideoUsageCharge(c, info, task)
+			})
+			engine.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, videoGenerationUsagePath, nil))
+
+			record := lookup()
+			assert.Equal(t, requestID, record.RequestID)
+			assert.Equal(t, task.TaskID, *record.TaskID)
+			assert.Equal(t, "video_generation", record.Capability)
+			assert.Equal(t, tc.status, record.Status)
+			if tc.failedFunding {
+				assertPending()
+				assert.Equal(t, balance-submitted, getUserQuota(t, userID))
+				return
+			}
+			assert.Equal(t, 2, record.Version)
+			assert.Equal(t, tc.net, *record.NetAmount)
+			assert.Equal(t, tc.refund, *record.RefundAmount)
+			finalQuota := submitted
+			expectedStatus := "succeeded"
+			if tc.terminal == model.TaskStatusFailure {
+				finalQuota, expectedStatus = 0, "failed"
+			} else if tc.adjustedQuota > 0 {
+				finalQuota = tc.adjustedQuota
+			}
+			assert.Equal(t, expectedStatus, record.RequestStatus)
+			assert.Equal(t, balance-finalQuota, getUserQuota(t, userID))
+			assert.Equal(t, balance-finalQuota, getTokenRemainQuota(t, tokenID))
+			expectedGross := decimal.RequireFromString(tc.net).Add(decimal.RequireFromString(tc.refund)).StringFixed(8)
+			assert.Equal(t, expectedGross, *record.GrossAmount)
+			rows, err := model.ListUsageRecords(ctx, userID, model.UsageRecordFilter{RequestID: requestID, UpdatedTo: common.GetTimestamp() + 1}, 0, 0, 10)
+			require.NoError(t, err)
+			require.Len(t, rows, 2)
+			assert.Equal(t, "pending", rows[0].Status)
+			assert.Equal(t, record.RecordID, rows[0].RecordID)
+		})
+	}
+}
+
 // ===========================================================================
 // PerCallBilling tests — settleTaskBillingOnComplete
 // ===========================================================================

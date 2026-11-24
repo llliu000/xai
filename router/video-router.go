@@ -18,16 +18,21 @@ func SetVideoRouter(router *gin.Engine) {
 		middleware.TaskPluginEndpointOnly(middleware.ModelRequestRateLimit()),
 		middleware.PrepareTaskPluginEndpoint(),
 		middleware.Distribute(),
+		middleware.RelayIdempotency(),
 		func(c *gin.Context) {
 			controller.RelayTaskPluginEndpoint(c, controller.RelayTask)
 		},
 	)
+	videoSharedRouter.GET("/video/generations/:task_id", controller.GetVideoGenerationTask)
+	videoSharedRouter.GET("/upscale/models", controller.ListUpscaleModels)
+	videoSharedRouter.POST("/upscale/tasks", middleware.ModelRequestRateLimit(), middleware.RelayIdempotency(), middleware.Distribute(), controller.RelayTask)
+	videoSharedRouter.GET("/upscale/tasks/:task_id", controller.GetUpscaleTask)
+	videoSharedRouter.GET("/upscale/tasks/:task_id/result", controller.GetUpscaleResult)
 
 	videoV1Router := router.Group("/v1")
 	videoV1Router.Use(middleware.RouteTag("relay"))
 	videoV1Router.Use(middleware.TokenAuth(), middleware.Distribute())
 	{
-		videoV1Router.GET("/video/generations/:task_id", controller.RelayTaskFetch)
 		videoV1Router.POST("/videos/:video_id/remix", controller.RelayTask)
 	}
 }

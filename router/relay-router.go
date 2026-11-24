@@ -56,9 +56,7 @@ func SetRelayRouter(router *gin.Engine) {
 	geminiCompatibleRouter.Use(middleware.RouteTag("relay"))
 	geminiCompatibleRouter.Use(middleware.TokenAuth())
 	{
-		geminiCompatibleRouter.GET("", func(c *gin.Context) {
-			controller.ListModels(c, constant.ChannelTypeOpenAI)
-		})
+		geminiCompatibleRouter.GET("", controller.ListGeminiCompatibleModels)
 	}
 
 	playgroundRouter := router.Group("/pg")
@@ -94,7 +92,7 @@ func SetRelayRouter(router *gin.Engine) {
 		// claude related routes
 		// TODO: /messages/count_tokens is disabled. The current controller.CountClaudeTokens
 		// httpRouter.POST("/messages/count_tokens", controller.CountClaudeTokens)
-		httpRouter.POST("/messages", func(c *gin.Context) {
+		httpRouter.POST("/messages", middleware.RelayIdempotency(), middleware.HoroMateRequest(), func(c *gin.Context) {
 			controller.Relay(c, types.RelayFormatClaude)
 		})
 
@@ -102,7 +100,7 @@ func SetRelayRouter(router *gin.Engine) {
 		httpRouter.POST("/completions", func(c *gin.Context) {
 			controller.Relay(c, types.RelayFormatOpenAI)
 		})
-		httpRouter.POST("/chat/completions", func(c *gin.Context) {
+		httpRouter.POST("/chat/completions", middleware.RelayIdempotency(), middleware.HoroMateRequest(), func(c *gin.Context) {
 			controller.Relay(c, types.RelayFormatOpenAI)
 		})
 

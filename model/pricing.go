@@ -79,7 +79,30 @@ var (
 var (
 	modelSupportEndpointTypes = make(map[string][]constant.EndpointType)
 	modelSupportEndpointsLock = sync.RWMutex{}
+	modelCatalogRoutes        = make(map[string]map[string][]ModelCatalogRoute)
 )
+
+// ModelCatalogRoute describes an endpoint advertised by an enabled ability.
+type ModelCatalogRoute struct {
+	Endpoint    constant.EndpointType
+	ChannelType int
+	PluginKey   string
+}
+
+// GetModelCatalogRoutes returns the pricing snapshot's channel capabilities
+// scoped to the given groups. Group prices belong only to groups with routes.
+func GetModelCatalogRoutes(name string, groups []string) map[string][]ModelCatalogRoute {
+	modelSupportEndpointsLock.RLock()
+	defer modelSupportEndpointsLock.RUnlock()
+	routes := modelCatalogRoutes[name]
+	result := make(map[string][]ModelCatalogRoute, len(groups))
+	for _, group := range groups {
+		if values, ok := routes[group]; ok {
+			result[group] = slices.Clone(values)
+		}
+	}
+	return result
+}
 
 func GetPricing() []Pricing {
 	if time.Since(lastGetPricingTime) > time.Minute*1 || len(pricingMap) == 0 {
@@ -154,7 +177,7 @@ func pricingUsesRelayRoutes(channelType int) bool {
 // The returned configs are pointers shared with the channel cache; they are
 // replaced wholesale on update and never mutated in place, so reading them after
 // RUnlock is safe.
-func loadPricingAdvancedCustomConfigs(enableAbilities []AbilityWithChannel) map[int]*dto.AdvancedCustomConfig {
+func loadPricingAdvancedCustomConfigs(enableAbilities []AbilityWithChannel) (map[int]*dto.AdvancedCustomConfig, map[int]string) {
 	channelIDs := make([]int, 0)
 	seen := make(map[int]struct{})
 	for _, ability := range enableAbilities {
@@ -168,23 +191,31 @@ func loadPricingAdvancedCustomConfigs(enableAbilities []AbilityWithChannel) map[
 		channelIDs = append(channelIDs, ability.ChannelId)
 	}
 	if len(channelIDs) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	configs := make(map[int]*dto.AdvancedCustomConfig, len(channelIDs))
+	pluginKeys := make(map[int]string)
 	if common.MemoryCacheEnabled {
 		channelSyncLock.RLock()
 		defer channelSyncLock.RUnlock()
 		for _, channelID := range channelIDs {
+			channel := channelsIDM[channelID]
+			if channel != nil && channel.Type == constant.ChannelTypeTaskPlugin && channel.Setting != nil {
+				var setting dto.ChannelSettings
+				if common.UnmarshalJsonStr(*channel.Setting, &setting) == nil {
+					pluginKeys[channelID] = setting.TaskPluginKey
+				}
+			}
 			if config := channel2advancedCustomConfig[channelID]; config != nil {
 				configs[channelID] = config
-			} else if channel := channelsIDM[channelID]; channel != nil {
+			} else if channel != nil {
 				if config := channelRelayConfig(channel); config != nil {
 					configs[channelID] = config
 				}
 			}
 		}
-		return configs
+		return configs, pluginKeys
 	}
 
 	for _, channelID := range channelIDs {
@@ -192,6 +223,12 @@ func loadPricingAdvancedCustomConfigs(enableAbilities []AbilityWithChannel) map[
 		if err != nil {
 			common.SysLog(common.LogText("load advanced custom channel settings error: channel_id=%d, error=%v", channelID, err))
 			continue
+		}
+		if channel.Type == constant.ChannelTypeTaskPlugin && channel.Setting != nil {
+			var setting dto.ChannelSettings
+			if common.UnmarshalJsonStr(*channel.Setting, &setting) == nil {
+				pluginKeys[channelID] = setting.TaskPluginKey
+			}
 		}
 		if config := channelRelayConfig(channel); config != nil {
 			configs[channelID] = config
@@ -204,7 +241,7 @@ func loadPricingAdvancedCustomConfigs(enableAbilities []AbilityWithChannel) map[
 			configs[channelID] = config
 		}
 	}
-	return configs
+	return configs, pluginKeys
 }
 
 func appendPricingEndpoint(endpoints []string, endpoint string) []string {
@@ -278,12 +315,39 @@ func updatePricing() {
 
 	//这里使用切片而不是Set，因为一个模型可能支持多个端点类型，并且第一个端点是优先使用端点
 	modelSupportEndpointsStr := make(map[string][]string)
-	advancedCustomConfigs := loadPricingAdvancedCustomConfigs(enableAbilities)
+	advancedCustomConfigs, catalogPluginKeys := loadPricingAdvancedCustomConfigs(enableAbilities)
+	modelCatalogRoutes = make(map[string]map[string][]ModelCatalogRoute)
 
 	// 先根据已有能力填充原生端点
 	for _, ability := range enableAbilities {
 		endpoints := modelSupportEndpointsStr[ability.Model]
 		channelTypes := getPricingEndpointTypesForAbility(ability, advancedCustomConfigs)
+		if ability.ChannelType != 0 {
+			groups := modelCatalogRoutes[ability.Model]
+			if groups == nil {
+				groups = make(map[string][]ModelCatalogRoute)
+				modelCatalogRoutes[ability.Model] = groups
+			}
+			groupRoutes := groups[ability.Group]
+			catalogEndpoints := channelTypes
+			pluginKey := catalogPluginKeys[ability.ChannelId]
+			if ability.ChannelType == constant.ChannelTypeDoubaoVideo {
+				pluginKey = "doubao"
+			}
+			if ability.ChannelType == constant.ChannelTypeTaskPlugin || ability.ChannelType == constant.ChannelTypeDoubaoVideo {
+				catalogEndpoints = []constant.EndpointType{""}
+				if config := advancedCustomConfigs[ability.ChannelId]; config != nil {
+					catalogEndpoints = append(catalogEndpoints, config.SupportedEndpointTypesForModel(ability.Model)...)
+				}
+			}
+			for _, endpoint := range catalogEndpoints {
+				route := ModelCatalogRoute{Endpoint: endpoint, ChannelType: ability.ChannelType, PluginKey: pluginKey}
+				if !slices.Contains(groupRoutes, route) {
+					groupRoutes = append(groupRoutes, route)
+				}
+			}
+			groups[ability.Group] = groupRoutes
+		}
 		for _, channelType := range channelTypes {
 			if !common.StringsContains(endpoints, string(channelType)) {
 				endpoints = append(endpoints, string(channelType))

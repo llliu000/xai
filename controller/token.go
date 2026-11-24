@@ -1,9 +1,12 @@
 package controller
 
 import (
+	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -16,6 +19,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/shopspring/decimal"
+	"gorm.io/gorm"
 )
 
 type tokenAutoGroupsInput struct {
@@ -144,6 +148,10 @@ func GetAllTokens(c *gin.Context) {
 }
 
 func SearchTokens(c *gin.Context) {
+	if c.GetBool("use_access_token") {
+		searchManagedTokens(c)
+		return
+	}
 	userId := c.GetInt("id")
 	keyword := c.Query("keyword")
 	token := c.Query("token")
@@ -161,6 +169,12 @@ func SearchTokens(c *gin.Context) {
 }
 
 func GetToken(c *gin.Context) {
+	if c.GetBool("use_access_token") {
+		if token := readManagedToken(c, true); token != nil {
+			c.JSON(http.StatusOK, buildManagedTokenResponse(&token.Token, common.GetTimestamp(), token.Version))
+		}
+		return
+	}
 	id, err := strconv.Atoi(c.Param("id"))
 	userId := c.GetInt("id")
 	if err != nil {
@@ -188,6 +202,10 @@ func GetTokenAutoGroups(c *gin.Context) {
 }
 
 func GetTokenKey(c *gin.Context) {
+	if c.GetBool("use_access_token") {
+		common.ApiErrorStatus(c, http.StatusForbidden, common.NewMessage("Unauthorized, insufficient privileges"))
+		return
+	}
 	id, err := strconv.Atoi(c.Param("id"))
 	userId := c.GetInt("id")
 	if err != nil {
@@ -298,8 +316,38 @@ func GetTokenUsage(c *gin.Context) {
 
 func AddToken(c *gin.Context) {
 	request := tokenRequest{}
-	err := c.ShouldBindJSON(&request)
-	if err != nil {
+	managed := c.GetBool("use_access_token")
+	if managed {
+		if !requireManagedTokenAccess(c) {
+			return
+		}
+		var input managedTokenCreate
+		if common.DecodeStrictJsonBody(http.MaxBytesReader(c.Writer, c.Request.Body, 64<<10), &input) != nil ||
+			strings.TrimSpace(input.Name) == "" || len(input.Name) > 50 ||
+			input.ExpiredTime == nil || (*input.ExpiredTime != -1 && *input.ExpiredTime <= common.GetTimestamp()) ||
+			input.RemainQuota < 0 || input.RemainQuota > maxTokenQuota() || !validManagedTokenIPs(input.AllowIps) {
+			common.ApiErrorStatus(c, http.StatusBadRequest, common.NewMessage("Invalid parameters"))
+			return
+		}
+		if input.Group != "" && input.Group != "auto" {
+			userGroup, err := getTokenRequestUserGroup(c)
+			if err != nil || !service.IsUserSelectableGroup(userGroup, input.Group) {
+				common.ApiErrorStatus(c, http.StatusBadRequest, common.NewMessage("Invalid parameters"))
+				return
+			}
+		}
+		request = tokenRequest{
+			Token: model.Token{
+				Name: input.Name, ExpiredTime: *input.ExpiredTime, RemainQuota: input.RemainQuota, UnlimitedQuota: input.UnlimitedQuota,
+				ModelLimitsEnabled: input.ModelLimitsEnabled, ModelLimits: input.ModelLimits, AllowIps: input.AllowIps,
+				Group: input.Group, CrossGroupRetry: input.CrossGroupRetry,
+			},
+			AutoGroups: input.AutoGroups, AllowUserQuotaQuery: input.AllowUserQuotaQuery,
+		}
+		if request.AllowUserQuotaQuery == nil {
+			request.AllowUserQuotaQuery = new(false)
+		}
+	} else if err := c.ShouldBindJSON(&request); err != nil {
 		common.ApiError(c, err)
 		return
 	}
@@ -326,11 +374,20 @@ func AddToken(c *gin.Context) {
 	maxTokens := operation_setting.GetMaxUserTokens()
 	count, err := model.CountUserTokens(c.GetInt("id"))
 	if err != nil {
-		common.ApiError(c, err)
+		if managed {
+			writeTokenManagementError(c, err)
+		} else {
+			common.ApiError(c, err)
+		}
 		return
 	}
 	if int(count) >= maxTokens {
-		common.ApiErrorT(c, "Maximum number of tokens reached ({{max}})", map[string]any{"max": maxTokens})
+		err := common.NewMessage("Maximum number of tokens reached ({{max}})", map[string]any{"max": maxTokens})
+		if managed {
+			common.ApiErrorStatus(c, http.StatusConflict, err)
+		} else {
+			common.ApiError(c, err)
+		}
 		return
 	}
 	if token.Group == "auto" {
@@ -343,9 +400,16 @@ func AddToken(c *gin.Context) {
 	}
 	key, err := common.GenerateKey()
 	if err != nil {
-		common.ApiErrorT(c, "Failed to generate token")
+		if managed {
+			common.ApiErrorStatus(c, http.StatusInternalServerError, common.NewMessage("Failed to generate token"))
+		} else {
+			common.ApiErrorT(c, "Failed to generate token")
+		}
 		common.SysLog(common.LogText("failed to generate token key: %s", err.Error()))
 		return
+	}
+	if managed {
+		key = model.ManagedRelayKeyPrefix + key
 	}
 	cleanToken := model.Token{
 		UserId:             c.GetInt("id"),
@@ -366,11 +430,20 @@ func AddToken(c *gin.Context) {
 	cleanToken.AllowUserQuotaQuery = request.AllowUserQuotaQuery == nil || *request.AllowUserQuotaQuery
 	err = cleanToken.Insert()
 	if err != nil {
-		common.ApiError(c, err)
+		if managed {
+			// Driver errors can include the inserted credential.
+			common.ApiErrorStatus(c, http.StatusInternalServerError, common.NewMessage("Failed to generate token"))
+		} else {
+			common.ApiError(c, err)
+		}
 		return
 	}
 	params["id"] = cleanToken.Id
 	common.SetContextKey(c, constant.ContextKeyTokenAuditSucceeded, true)
+	if managed {
+		writeManagedTokenIssued(c, &cleanToken)
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -511,6 +584,126 @@ func UpdateToken(c *gin.Context) {
 	})
 }
 
+func UpdateTokenSettings(c *gin.Context) {
+	if !requireManagedTokenAccess(c) {
+		return
+	}
+	var request map[string]common.RawMessage
+	if err := common.DecodeJsonBody(http.MaxBytesReader(c.Writer, c.Request.Body, 64<<10), &request); err != nil || len(request) == 0 {
+		common.ApiErrorStatus(c, http.StatusBadRequest, common.NewMessage("Invalid parameters"))
+		return
+	}
+	var version int
+	if len(request) < 2 || common.Unmarshal(request["expected_version"], &version) != nil || version < 1 {
+		common.ApiErrorStatus(c, http.StatusBadRequest, common.NewMessage("Invalid parameters"))
+		return
+	}
+	delete(request, "expected_version")
+	fields := make(map[string]any, len(request))
+	for name, raw := range request {
+		var value any
+		switch name {
+		case "name", "model_limits", "allow_ips":
+			value = new(string)
+		case "expired_time":
+			value = new(int64)
+		case "remain_quota":
+			value = new(int)
+		case "unlimited_quota", "model_limits_enabled", "allow_user_quota_query":
+			value = new(bool)
+		}
+		if value == nil || string(raw) == "null" || common.Unmarshal(raw, value) != nil {
+			common.ApiErrorStatus(c, http.StatusBadRequest, common.NewMessage("Invalid parameters"))
+			return
+		}
+		fields[name] = value
+	}
+	if name, ok := fields["name"].(*string); ok && (strings.TrimSpace(*name) == "" || len(*name) > 50) {
+		common.ApiErrorStatus(c, http.StatusBadRequest, common.NewMessage("Invalid parameters"))
+		return
+	}
+	if expiry, ok := fields["expired_time"].(*int64); ok && *expiry != -1 && *expiry <= common.GetTimestamp() {
+		common.ApiErrorStatus(c, http.StatusBadRequest, common.NewMessage("Invalid parameters"))
+		return
+	}
+	if quota, ok := fields["remain_quota"].(*int); ok && (*quota < 0 || *quota > maxTokenQuota()) {
+		common.ApiErrorStatus(c, http.StatusBadRequest, common.NewMessage("Invalid parameters"))
+		return
+	}
+	if ips, ok := fields["allow_ips"].(*string); ok && !validManagedTokenIPs(ips) {
+		common.ApiErrorStatus(c, http.StatusBadRequest, common.NewMessage("Invalid parameters"))
+		return
+	}
+	token := readManagedToken(c, false)
+	if token == nil {
+		return
+	}
+	if err := token.UpdateManagedToken(c.Request.Context(), version, fields, false); err != nil {
+		writeTokenManagementError(c, err)
+		return
+	}
+	names := make([]string, 0, len(fields))
+	for name := range fields {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	params := tokenAuditParams(c)
+	params["name"], params["changed_fields"] = token.Name, names
+	common.SetContextKey(c, constant.ContextKeyTokenAuditSucceeded, true)
+	c.JSON(http.StatusOK, buildManagedTokenResponse(&token.Token, common.GetTimestamp(), version+1))
+}
+
+func ChangeTokenStatus(c *gin.Context) {
+	if !requireManagedTokenAccess(c) {
+		return
+	}
+	var request struct {
+		Version int    `json:"expected_version"`
+		Status  string `json:"status"`
+		Reason  string `json:"reason"`
+	}
+	if err := common.DecodeStrictJsonBody(http.MaxBytesReader(c.Writer, c.Request.Body, 64<<10), &request); err != nil || request.Version < 1 ||
+		strings.TrimSpace(request.Reason) == "" || utf8.RuneCountInString(request.Reason) > 500 || !managedStatusAllowed(request.Status) {
+		common.ApiErrorStatus(c, http.StatusBadRequest, common.NewMessage("Invalid parameters"))
+		return
+	}
+	requestedStatus := request.Status
+	token := readManagedToken(c, false)
+	if token == nil {
+		return
+	}
+	from := token.Status
+	status := common.TokenStatusDisabled
+	if requestedStatus == "active" {
+		status = common.TokenStatusEnabled
+	}
+	if err := token.UpdateManagedToken(c.Request.Context(), request.Version, map[string]any{"status": status}, requestedStatus == "revoked"); err != nil {
+		writeTokenManagementError(c, err)
+		return
+	}
+	params := tokenAuditParams(c)
+	params["name"], params["from"], params["to"] = token.Name, from, requestedStatus
+	common.SetContextKey(c, constant.ContextKeyTokenAuditSucceeded, true)
+	c.JSON(http.StatusOK, buildManagedTokenResponse(&token.Token, common.GetTimestamp(), request.Version+1))
+}
+
+func writeTokenManagementError(c *gin.Context, err error) {
+	if errors.Is(err, model.ErrManagedTokenVersion) {
+		common.ApiErrorStatus(c, http.StatusConflict, common.NewMessage("Invalid parameters"), gin.H{"code": "version_conflict"})
+		return
+	}
+	if errors.Is(err, model.ErrManagedTokenInactive) {
+		common.ApiErrorStatus(c, http.StatusConflict, common.NewMessage("Token has expired and cannot be enabled. Please modify the expiration time or set it to never expire"), gin.H{"code": "token_inactive"})
+		return
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		common.ApiErrorStatus(c, http.StatusNotFound, common.NewMessage("Invalid parameters"))
+		return
+	}
+	logger.LogError(c, common.LogText("failed to manage token %s: %s", c.Param("id"), err.Error()))
+	common.ApiErrorStatus(c, http.StatusInternalServerError, common.NewMessage("Internal Server Error!"))
+}
+
 type TokenBatch struct {
 	Ids []int `json:"ids"`
 }
@@ -542,6 +735,10 @@ func DeleteTokenBatch(c *gin.Context) {
 }
 
 func GetTokenKeysBatch(c *gin.Context) {
+	if c.GetBool("use_access_token") {
+		common.ApiErrorStatus(c, http.StatusForbidden, common.NewMessage("Unauthorized, insufficient privileges"))
+		return
+	}
 	tokenBatch := TokenBatch{}
 	if err := c.ShouldBindJSON(&tokenBatch); err != nil {
 		common.ApiErrorT(c, "Invalid parameters")

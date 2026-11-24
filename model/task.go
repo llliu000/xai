@@ -13,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/pkg/jsplugin"
 	commonRelay "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
+	"gorm.io/gorm"
 )
 
 type TaskStatus string
@@ -167,9 +168,48 @@ type TaskRequestPlugins struct {
 }
 
 type TaskExecutionSnapshot struct {
-	RequestID   string              `json:"request_id,omitempty"`
-	RequestPath string              `json:"request_path,omitempty"`
-	TaskPlugin  *TaskPluginSnapshot `json:"task_plugin,omitempty"`
+	RequestID     string              `json:"request_id,omitempty"`
+	RequestPath   string              `json:"request_path,omitempty"`
+	TaskPlugin    *TaskPluginSnapshot `json:"task_plugin,omitempty"`
+	VideoMetadata map[string]string   `json:"video_metadata,omitempty"`
+	VideoResult   *VideoMediaResult   `json:"video_result,omitempty"`
+}
+
+type VideoMediaResult struct {
+	Width    int     `json:"width"`
+	Height   int     `json:"height"`
+	Duration float64 `json:"duration_seconds"`
+	FPS      float64 `json:"fps"`
+	Codec    string  `json:"video_codec"`
+	HasAudio bool    `json:"has_audio"`
+	Size     int64   `json:"size_bytes"`
+	SHA256   string  `json:"sha256"`
+}
+
+func (t *Task) AllowsRelayToken(tokenID int) bool {
+	execution := t.PrivateData.Execution
+	if execution == nil || execution.RequestPath != "/v1/video/generations" && execution.RequestPath != constant.UpscaleTaskPath {
+		return true
+	}
+	return tokenID > 0 && t.PrivateData.TokenId == tokenID
+}
+
+func (t *Task) SaveVideoMediaResult(ctx context.Context, media *VideoMediaResult) error {
+	return DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var current Task
+		if err := lockForUpdate(tx).Where("id = ? AND status = ?", t.ID, TaskStatusSuccess).Take(&current).Error; err != nil {
+			return err
+		}
+		execution := current.PrivateData.Execution
+		if execution == nil || current.GetResultURL() != t.GetResultURL() {
+			return gorm.ErrRecordNotFound
+		}
+		if execution.VideoResult != nil {
+			return nil
+		}
+		execution.VideoResult = media
+		return tx.Model(&current).UpdateColumn("private_data", current.PrivateData).Error
+	})
 }
 
 // TaskPluginSnapshot contains credential-free identity only. Plugin source,

@@ -40,6 +40,7 @@ const (
 	FilterTaskPluginEndpoint ChannelFilterKind = "task_plugin_endpoint"
 	FilterTaskPluginIdentity ChannelFilterKind = "task_plugin_identity"
 	FilterResponsesWebSocket ChannelFilterKind = "responses_websocket"
+	FilterMediaKitUpscale    ChannelFilterKind = "mediakit_upscale"
 )
 
 type ChannelFilter struct {

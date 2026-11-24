@@ -40,6 +40,9 @@ func Distribute() func(c *gin.Context) {
 			}
 		}()
 		constraints := service.GetChannelConstraints(c)
+		if c.FullPath() == constant.UpscaleTaskPath {
+			constraints.AddFilter(taskdto.ChannelFilter{Kind: taskdto.FilterMediaKitUpscale})
+		}
 		constraints.AddFilter(taskdto.ChannelFilter{
 			Kind:        taskdto.FilterRequestPath,
 			RequestPath: c.Request.URL.Path,

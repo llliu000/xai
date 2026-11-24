@@ -122,9 +122,9 @@ func taskAdjustFunding(task *model.Task, delta int) error {
 		return model.PostConsumeUserSubscriptionDelta(task.PrivateData.SubscriptionId, int64(delta))
 	}
 	if delta > 0 {
-		return model.DecreaseUserQuota(task.UserId, delta, false)
+		return model.DecreaseUserQuota(task.UserId, delta, tracksVideoUsage(task))
 	}
-	return model.IncreaseUserQuota(task.UserId, -delta, false)
+	return model.IncreaseUserQuota(task.UserId, -delta, tracksVideoUsage(task))
 }
 
 // taskAdjustTokenQuota 调整任务的令牌额度，delta > 0 表示扣费，delta < 0 表示退还。
@@ -139,9 +139,9 @@ func taskAdjustTokenQuota(ctx context.Context, task *model.Task, delta int) {
 	}
 	var err error
 	if delta > 0 {
-		err = model.DecreaseTokenQuota(task.PrivateData.TokenId, tokenKey, delta)
+		err = model.DecreaseTokenQuota(task.PrivateData.TokenId, tokenKey, delta, tracksVideoUsage(task))
 	} else {
-		err = model.IncreaseTokenQuota(task.PrivateData.TokenId, tokenKey, -delta)
+		err = model.IncreaseTokenQuota(task.PrivateData.TokenId, tokenKey, -delta, tracksVideoUsage(task))
 	}
 	if err != nil {
 		logger.LogWarn(ctx, common.LogText("failed to adjust token quota (delta=%d, task=%s): %s", delta, task.TaskID, err.Error()))
@@ -303,6 +303,8 @@ func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) bool 
 	task.Quota = 0
 	if err := task.UpdateQuota(); err != nil {
 		logger.LogError(ctx, common.LogText("refund succeeded but clearing the task quota failed, task %s: %s", task.TaskID, err.Error()))
+	} else {
+		recordVideoUsageOutcome(ctx, task)
 	}
 	return true
 }
@@ -321,6 +323,7 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 	if quotaDelta == 0 {
 		logger.LogInfo(ctx, common.LogText("task %s pre-consumed quota matches the actual quota (%s, %s)",
 			task.TaskID, logger.LogQuota(actualQuota), reason.Error()))
+		recordVideoUsageOutcome(ctx, task)
 		return
 	}
 
@@ -344,6 +347,8 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 	task.Quota = actualQuota
 	if err := task.UpdateQuota(); err != nil {
 		logger.LogError(ctx, common.LogText("failed to write back the settled task quota, task %s: %s", task.TaskID, err.Error()))
+	} else {
+		recordVideoUsageOutcome(ctx, task)
 	}
 
 	// 提交阶段已经累计过一次请求；结算阶段只调整最终用量。

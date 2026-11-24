@@ -38,6 +38,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/sub2api"
 	"github.com/QuantumNous/new-api/relay/channel/submodel"
 	jspluginadaptor "github.com/QuantumNous/new-api/relay/channel/task/jsplugin"
+	"github.com/QuantumNous/new-api/relay/channel/task/mediakit"
 	"github.com/QuantumNous/new-api/relay/channel/tencent"
 	"github.com/QuantumNous/new-api/relay/channel/vertex"
 	"github.com/QuantumNous/new-api/relay/channel/volcengine"
@@ -189,6 +190,9 @@ func TaskPlatformUnavailableError(platform constant.TaskPlatform) (string, strin
 }
 
 func GetTaskAdaptor(platform constant.TaskPlatform) channel.TaskAdaptor {
+	if platform == constant.MediaKitPlatform {
+		return &mediakit.Adaptor{}
+	}
 	plugin, ok := ResolveTaskPluginForPlatform(pluginruntime.DefaultRegistry.Generation(), platform)
 	if !ok {
 		return nil
@@ -201,6 +205,9 @@ func GetTaskAdaptor(platform constant.TaskPlatform) channel.TaskAdaptor {
 // from one registry generation before the adaptor is returned.
 func getTaskAdaptorForRequest(c *gin.Context, platform constant.TaskPlatform) (constant.TaskPlatform, channel.TaskAdaptor) {
 	if c != nil {
+		if c.FullPath() == constant.UpscaleTaskPath {
+			return constant.MediaKitPlatform, &mediakit.Adaptor{}
+		}
 		if value, exists := c.Get(pluginruntime.ContextKeyPinnedPlugin); exists {
 			if pinned, ok := value.(pluginruntime.PinnedPlugin); ok && pinned.Plugin != nil {
 				platform = constant.TaskPlatform(pinned.Plugin.Meta.Key)

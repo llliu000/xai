@@ -231,6 +231,14 @@ func getModelListGroups(c *gin.Context) (modelListGroups, error) {
 }
 
 func ListModels(c *gin.Context, modelType int) {
+	listModels(c, modelType, true)
+}
+
+func ListGeminiCompatibleModels(c *gin.Context) {
+	listModels(c, constant.ChannelTypeOpenAI, false)
+}
+
+func listModels(c *gin.Context, modelType int, catalog bool) {
 	acceptUnsetRatioModel := operation_setting.SelfUseModeEnabled
 	if !acceptUnsetRatioModel {
 		userId := c.GetInt("id")
@@ -322,6 +330,10 @@ func ListModels(c *gin.Context, modelType int) {
 			"nextPageToken": nil,
 		})
 	default:
+		if catalog {
+			writeModelCatalog(c, userOpenAiModels, groups)
+			return
+		}
 		c.JSON(200, gin.H{
 			"success": true,
 			"data":    userOpenAiModels,

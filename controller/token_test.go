@@ -736,7 +736,7 @@ func TestAPITokenAuditDatabaseMatrix(t *testing.T) {
 				db, _ := newAuditTestDatabase(t, database.name, dsn)
 				model.DB = db
 				common.SetDatabaseTypes(database.typ, database.typ)
-				require.NoError(t, db.AutoMigrate(&model.User{}, &model.UserSession{}, &model.Token{}))
+				require.NoError(t, db.AutoMigrate(&model.User{}, &model.UserSession{}, &model.UserAccessToken{}, &model.Token{}))
 				// Initialize production column quoting as well as the existing audit table.
 				require.NoError(t, model.InitLogDB())
 				if separateLog {
@@ -764,9 +764,14 @@ func TestAPITokenAuditDatabaseMatrix(t *testing.T) {
 
 func verifyAPITokenAudit(t *testing.T) {
 	t.Helper()
-	pat := "api-token-audit-pat-secret"
-	user := &model.User{Username: "token-owner", Password: "placeholder", Role: common.RoleCommonUser, Status: common.UserStatusEnabled, Group: "default", AuthVersion: 1, AccessToken: &pat, AffCode: "token-owner"}
+	suffix, err := common.GenerateRandomCharsKey(43)
+	require.NoError(t, err)
+	pat := model.AccessTokenPrefix + suffix
+	user := &model.User{Username: "token-owner", Password: "placeholder", Role: common.RoleCommonUser, Status: common.UserStatusEnabled, Group: "default", AuthVersion: 1, AffCode: "token-owner"}
 	require.NoError(t, model.DB.Create(user).Error)
+	credential := model.UserAccessToken{Name: "audit-test", TokenHash: model.AccessTokenFingerprint(pat), TokenHint: model.AccessTokenHint(pat)}
+	require.NoError(t, credential.SetScopes([]string{"api_key:reveal"}))
+	require.NoError(t, model.CreateUserAccessToken(user.Id, &credential, service.AccessTokenMaxPerUser))
 	other := &model.User{Username: "other-owner", Password: "placeholder", Role: common.RoleCommonUser, Status: common.UserStatusEnabled, Group: "default", AuthVersion: 1, AffCode: "other-owner"}
 	require.NoError(t, model.DB.Create(other).Error)
 	session := &model.UserSession{SID: "token-audit-session", UserID: user.Id, Version: 1, UserAuthVersion: 1, Status: model.UserSessionStatusActive, RefreshHash: "placeholder", LoginMethod: "password", LastActiveAt: time.Now().Unix(), ExpiresAt: time.Now().Add(time.Hour).Unix()}
@@ -819,7 +824,7 @@ func verifyAPITokenAudit(t *testing.T) {
 		{name: "foreign delete", method: "DELETE", path: "/$other", action: "token.delete", params: `{"id":$other}`},
 		{name: "missing delete", method: "DELETE", path: "/999999", action: "token.delete", params: `{"id":999999}`},
 		{name: "key view", method: "POST", path: "/$id/key", action: "token.key_view", success: true, params: `{"id":$id,"name":"owned"}`},
-		{name: "PAT key view", method: "POST", path: "/$id/key", action: "token.key_view", success: true, params: `{"id":$id,"name":"owned"}`, usePAT: true},
+		{name: "PAT cannot re-read key", method: "POST", path: "/$id/key", action: "token.key_view", params: `{"id":$id}`, usePAT: true},
 		{name: "foreign key view", method: "POST", path: "/$other/key", action: "token.key_view", params: `{"id":$other}`},
 		{name: "rate limited key view", method: "POST", path: "/$id/key", action: "token.key_view", params: `{"id":$id}`, rateLimit: true},
 		{name: "batch delete partial and duplicate", method: "POST", path: "/batch", body: `{"ids":[$id,$id,$other,999999]}`, action: "token.delete_batch", success: true, params: `{"requested_ids":[$id,$id,$other,999999],"total":4,"count":1}`},
@@ -895,6 +900,8 @@ func verifyAPITokenAudit(t *testing.T) {
 			assert.Equal(t, response.Code, operation.Status)
 			if tc.rateLimit {
 				assert.Equal(t, 429, response.Code)
+			} else if tc.usePAT {
+				assert.Equal(t, http.StatusForbidden, response.Code)
 			} else {
 				assert.Equal(t, 200, response.Code)
 				assert.Equal(t, tc.success, decodeAPIResponse(t, response).Success)

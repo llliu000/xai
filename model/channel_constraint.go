@@ -13,6 +13,7 @@ var filterEvalOrder = []dto.ChannelFilterKind{
 	dto.FilterTaskPluginEndpoint,
 	dto.FilterTaskPluginIdentity,
 	dto.FilterResponsesWebSocket,
+	dto.FilterMediaKitUpscale,
 }
 
 // ChannelSatisfiesFilters reports whether ch passes every filter.
@@ -91,6 +92,8 @@ func candidatePassesKindFilters(ch *Channel, exists bool, modelName string, kind
 
 func channelMatchesFilter(ch *Channel, modelName string, filter dto.ChannelFilter) bool {
 	switch filter.Kind {
+	case dto.FilterMediaKitUpscale:
+		return ch.Type == constant.ChannelTypeCustom && modelName == constant.MediaKitModel
 	case dto.FilterRequestPath:
 		if filter.RequestPath == "" {
 			return true

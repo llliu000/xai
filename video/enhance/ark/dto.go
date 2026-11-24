@@ -2,7 +2,10 @@ package ark
 
 import "fmt"
 
-type createTaskRequest struct {
+const GenerativeTaskPath = "/api/v1/tools/enhance-video-generative"
+const TaskQueryPath = "/api/v1/tasks"
+
+type TaskRequest struct {
 	VideoURL               string   `json:"video_url"`
 	ToolVersion            *string  `json:"tool_version,omitempty"`
 	Scene                  *string  `json:"scene,omitempty"`
@@ -51,12 +54,12 @@ func (br *baseResponse) validate() error {
 	return err
 }
 
-type createTaskResponse struct {
+type SubmitResponse struct {
 	baseResponse
 	TaskID string `json:"task_id"`
 }
 
-type getTaskResponse struct {
+type TaskResponse struct {
 	baseResponse
 	TaskID   string `json:"task_id"`
 	TaskType string `json:"task_type"`

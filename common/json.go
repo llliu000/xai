@@ -66,6 +66,27 @@ func DecodeJson(reader io.Reader, v any) error {
 // Seekable readers let the decoder process large values through a bounded window.
 func DecodeJsonBody(reader io.Reader, v any) error {
 	decoder := json.NewDecoder(reader)
+	return decodeSingleJSONValue(decoder, v)
+}
+
+func DecodeStrictJsonBody(reader io.Reader, v any) error {
+	decoder := json.NewDecoder(reader)
+	decoder.DisallowUnknownFields()
+	return decodeSingleJSONValue(decoder, v)
+}
+
+// NormalizeJSONBody canonicalizes object key order without rounding integers.
+func NormalizeJSONBody(reader io.Reader) ([]byte, error) {
+	decoder := json.NewDecoder(reader)
+	decoder.UseNumber()
+	var value any
+	if err := decodeSingleJSONValue(decoder, &value); err != nil {
+		return nil, err
+	}
+	return Marshal(value)
+}
+
+func decodeSingleJSONValue(decoder *json.Decoder, v any) error {
 	if err := decoder.Decode(v); err != nil {
 		return err
 	}

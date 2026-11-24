@@ -3,6 +3,7 @@ package service
 import (
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -463,6 +464,34 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 		model.UpdateChannelUsedQuota(relayInfo.ChannelId, summary.Quota)
 	}
 
+	if !tieredBillingApplied && !relayInfo.PriceData.UsePrice && !summary.IsClaudeUsageSemantic &&
+		summary.CacheCreationTokens == 0 && summary.AudioTokens == 0 && summary.ImageTokens == 0 && len(summary.ToolSurchargeItems) == 0 &&
+		relayInfo.PriceData.OtherRatioMultiplier() == 1 && summary.CacheTokens <= summary.PromptTokens && common.QuotaPerUnit > 0 {
+		base := decimal.NewFromFloat(summary.ModelRatio).Mul(decimal.NewFromFloat(summary.GroupRatio)).
+			Mul(decimal.NewFromInt(1_000_000)).Div(decimal.NewFromFloat(common.QuotaPerUnit))
+		amount := decimal.NewFromInt(int64(summary.Quota)).DivRound(decimal.NewFromFloat(common.QuotaPerUnit), 8)
+		var lines []model.UsageQuantity
+		total := decimal.Zero
+		for _, counter := range []struct {
+			metric string
+			count  int
+			rate   decimal.Decimal
+		}{
+			{"input_tokens", summary.PromptTokens - summary.CacheTokens, base},
+			{"output_tokens", summary.CompletionTokens, base.Mul(decimal.NewFromFloat(summary.CompletionRatio))},
+			{"cached_input_tokens", summary.CacheTokens, base.Mul(decimal.NewFromFloat(summary.CacheRatio))},
+		} {
+			if counter.count <= 0 || counter.rate.IsNegative() {
+				continue
+			}
+			cost := counter.rate.Mul(decimal.NewFromInt(int64(counter.count))).DivRound(decimal.NewFromInt(1_000_000), 8)
+			total = total.Add(cost)
+			lines = append(lines, model.UsageQuantity{Metric: counter.metric, Quantity: strconv.Itoa(counter.count), UnitQuantity: 1_000_000, UnitPrice: counter.rate.StringFixed(8), Amount: cost.StringFixed(8)})
+		}
+		if total.Equal(amount) && len(lines) > 0 {
+			ctx.Set("usage_record_quantities", lines)
+		}
+	}
 	if err := SettleBilling(ctx, relayInfo, summary.Quota); err != nil {
 		logger.LogError(ctx, common.LogText("error settling billing: %s", err.Error()))
 	}
