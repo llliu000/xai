@@ -7,17 +7,17 @@
 // keeps the 1.0 pro tiers.
 const VIDEO_MODELS = {
   // 国内
-  "doubao-seedance-2-0-260128": { resolutions: ["480p", "720p", "1080p", "4k"], maxDuration: 15, videoInput: true },
-  "doubao-seedance-2-0-fast-260128": { resolutions: ["480p", "720p"], maxDuration: 15, videoInput: true },
-  "doubao-seedance-2-0-mini-260615": { resolutions: ["480p", "720p"], maxDuration: 15, videoInput: true },
-  "doubao-seedance-2-5-260628": { resolutions: ["480p", "720p", "1080p", "4k"], maxDuration: 30, videoInput: true },
-  "doubao-seedance-2-5-flash-261115": { resolutions: ["480p", "720p"], maxDuration: 30, videoInput: true },
+  "doubao-seedance-2-0": { resolutions: ["480p", "720p", "1080p", "4k"], maxDuration: 15, videoInput: true },
+  "doubao-seedance-2-0-fast": { resolutions: ["480p", "720p"], maxDuration: 15, videoInput: true },
+  "doubao-seedance-2-0-mini": { resolutions: ["480p", "720p"], maxDuration: 15, videoInput: true },
+  "doubao-seedance-2-5": { resolutions: ["480p", "720p", "1080p", "4k"], maxDuration: 30, videoInput: true },
+  "doubao-seedance-2-5-flash": { resolutions: ["480p", "720p"], maxDuration: 30, videoInput: true },
   // 海外
-  "dreamina-seedance-2-0-260128": { resolutions: ["480p", "720p", "1080p", "4k"], maxDuration: 15, videoInput: true },
-  "dreamina-seedance-2-0-fast-260128": { resolutions: ["480p", "720p"], maxDuration: 15, videoInput: true },
-  "dreamina-seedance-2-0-mini-260615": { resolutions: ["480p", "720p"], maxDuration: 15, videoInput: true },
-  "dreamina-seedance-2-5-260628": { resolutions: ["480p", "720p", "1080p", "4k"], maxDuration: 30, videoInput: true },
-  "dreamina-seedance-2-5-flash-261115": { resolutions: ["480p", "720p"], maxDuration: 30, videoInput: true },
+  "dreamina-seedance-2-0": { resolutions: ["480p", "720p", "1080p", "4k"], maxDuration: 15, videoInput: true },
+  "dreamina-seedance-2-0-fast": { resolutions: ["480p", "720p"], maxDuration: 15, videoInput: true },
+  "dreamina-seedance-2-0-mini": { resolutions: ["480p", "720p"], maxDuration: 15, videoInput: true },
+  "dreamina-seedance-2-5": { resolutions: ["480p", "720p", "1080p", "4k"], maxDuration: 30, videoInput: true },
+  "dreamina-seedance-2-5-flash": { resolutions: ["480p", "720p"], maxDuration: 30, videoInput: true },
 };
 // Every Ark resolution tier; an endpoint ID reached through channel mapping
 // without a declared profile keeps them all and the longest Seedance duration.
@@ -510,33 +510,33 @@ function videoInputRatio(model, resolution, content) {
   const video = hasVideo(content);
   const res = trimmed(resolution).toLowerCase();
   // 国内
-  if (model === "doubao-seedance-2-5-260628") {
+  if (model === "doubao-seedance-2-5") {
     if (res === "1080p") return video ? 46 / 70 : 77 / 70;
     if (res === "4k") return video ? 19 / 70 : 31 / 70;
     return video ? 42 / 70 : 1;
   }
-  if (model === "doubao-seedance-2-5-flash-261115") return video ? 28 / 46 : 1;
-  if (model === "doubao-seedance-2-0-260128") {
+  if (model === "doubao-seedance-2-5-flash") return video ? 28 / 46 : 1;
+  if (model === "doubao-seedance-2-0") {
     if (res === "1080p") return video ? 31 / 46 : 51 / 46;
     if (res === "4k") return video ? 16 / 46 : 26 / 46;
     return video ? 28 / 46 : 1;
   }
-  if (model === "doubao-seedance-2-0-fast-260128") return video ? 22 / 37 : 1;
-  if (model === "doubao-seedance-2-0-mini-260615") return video ? 14 / 23 : 1;
+  if (model === "doubao-seedance-2-0-fast") return video ? 22 / 37 : 1;
+  if (model === "doubao-seedance-2-0-mini") return video ? 14 / 23 : 1;
   // 海外
-  if (model === "dreamina-seedance-2-5-260628") {
+  if (model === "dreamina-seedance-2-5") {
     if (res === "1080p") return video ? 7.0 / 10.70 : 11.7 / 10.70;
     if (res === "4k") return video ? 2.9 / 10.70 : 4.7 / 10.70;
     return video ? 6.40 / 10.70 : 1;
   }
-  if (model === "dreamina-seedance-2-5-flash-261115") return video ? 4.3 / 7.0 : 1;
-  if (model === "dreamina-seedance-2-0-260128") {
+  if (model === "dreamina-seedance-2-5-flash") return video ? 4.3 / 7.0 : 1;
+  if (model === "dreamina-seedance-2-0") {
     if (res === "1080p") return video ? 4.7 / 7.0  : 7.7 / 7.0 ;
     if (res === "4k") return video ? 2.4 / 7.0  : 4.0 / 7.0 ;
     return video ? 4.3 / 7.0 : 1;
   }
-  if (model === "dreamina-seedance-2-0-fast-260128") return video ? 3.3 / 5.6 : 1;
-  if (model === "dreamina-seedance-2-0-mini-260615") return video ? 2.1 / 3.5 : 1;
+  if (model === "dreamina-seedance-2-0-fast") return video ? 3.3 / 5.6 : 1;
+  if (model === "dreamina-seedance-2-0-mini") return video ? 2.1 / 3.5 : 1;
   return 1;
 }
 
