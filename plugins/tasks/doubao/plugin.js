@@ -158,6 +158,18 @@ const IMAGE_MODELS = {
     tools: false,
     fastPromptMode: false,
   },
+  "dola-seedream-5-0-lite": {
+    presets: ["2K", "3K", "4K"],
+    minPixels: 3686400,
+    maxPixels: 16777216,
+    maxReferenceImages: 14,
+    sequential: true,
+    layers: false,
+    outputFormat: true,
+    background: false,
+    tools: true,
+    fastPromptMode: false,
+  },
 };
 const IMAGE_RESOLUTIONS = ["1K", "1.5K", "2K", "3K", "4K"];
 // Square pixel area of each preset, used only for the submit-time tier estimate.
