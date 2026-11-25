@@ -33,7 +33,7 @@ const DEFAULT_VIDEO_PROFILE = { resolutions: SEEDANCE_RESOLUTIONS, maxDuration: 
 // layerImages is the ceiling of layer_decomposition_options.max_images and
 // replaces MAX_IMAGE_OUTPUTS for the model.
 const IMAGE_MODELS = {
-  "doubao-seedream-5-5-261028": {
+  "doubao-seedream-5-5": {
     presets: ["1K", "1.5K", "2K"],
     minPixels: 921600,
     maxPixels: 4624220,
@@ -47,7 +47,7 @@ const IMAGE_MODELS = {
     rgba: true,
     layerImages: 100,
   },
-  "doubao-seedream-5-0-pro-260628": {
+  "doubao-seedream-5-0-pro": {
     presets: ["1K", "1.5K", "2K"],
     minPixels: 921600,
     maxPixels: 4624220,
@@ -59,7 +59,7 @@ const IMAGE_MODELS = {
     tools: false,
     fastPromptMode: true,
   },
-  "doubao-seedream-5-0-flash-260915": {
+  "doubao-seedream-5-0-flash": {
     presets: ["1K", "1.5K", "2K"],
     minPixels: 921600,
     maxPixels: 4624220,
@@ -71,7 +71,7 @@ const IMAGE_MODELS = {
     tools: false,
     fastPromptMode: false,
   },
-  "doubao-seedream-5-0-lite-260128": {
+  "doubao-seedream-5-0-lite": {
     presets: ["2K", "3K", "4K"],
     minPixels: 3686400,
     maxPixels: 16777216,
@@ -83,7 +83,7 @@ const IMAGE_MODELS = {
     tools: true,
     fastPromptMode: false,
   },
-  "doubao-seedream-5-0-260128": {
+  "doubao-seedream-5-0": {
     presets: ["2K", "3K", "4K"],
     minPixels: 3686400,
     maxPixels: 16777216,
@@ -95,7 +95,7 @@ const IMAGE_MODELS = {
     tools: true,
     fastPromptMode: false,
   },
-  "doubao-seedream-4-5-251128": {
+  "doubao-seedream-4-5": {
     presets: ["2K", "4K"],
     minPixels: 3686400,
     maxPixels: 16777216,
@@ -107,7 +107,7 @@ const IMAGE_MODELS = {
     tools: false,
     fastPromptMode: false,
   },
-  "doubao-seedream-4-0-250828": {
+  "doubao-seedream-4-0": {
     presets: ["1K", "2K", "4K"],
     minPixels: 921600,
     maxPixels: 16777216,
@@ -120,7 +120,7 @@ const IMAGE_MODELS = {
     fastPromptMode: true,
   },
   // Overseas Dola Seedream models.
-  "dola-seedream-5-5-261028": {
+  "dola-seedream-5-5": {
     presets: ["1K", "1.5K", "2K"],
     minPixels: 921600,
     maxPixels: 4624220,
@@ -134,7 +134,7 @@ const IMAGE_MODELS = {
     rgba: true,
     layerImages: 100,
   },
-  "dola-seedream-5-0-pro-260628": {
+  "dola-seedream-5-0-pro": {
     presets: ["1K", "1.5K", "2K"],
     minPixels: 921600,
     maxPixels: 4624220,
@@ -146,7 +146,7 @@ const IMAGE_MODELS = {
     tools: false,
     fastPromptMode: true,
   },
-  "dola-seedream-5-0-flash-260915": {
+  "dola-seedream-5-0-flash": {
     presets: ["1K", "1.5K", "2K"],
     minPixels: 921600,
     maxPixels: 4624220,
