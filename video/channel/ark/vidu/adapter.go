@@ -16,7 +16,7 @@ type Adapter struct {
 }
 
 func (a *Adapter) Name() string {
-	return "vidu"
+	return common.Vidu
 }
 
 func (a *Adapter) CreateTask(ctx context.Context, req dto.ArkCreateTaskRequest) (*dto.ArkCreateTaskResponse, error) {

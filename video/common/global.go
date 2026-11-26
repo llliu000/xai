@@ -12,6 +12,8 @@ const (
 )
 
 const (
+	VolcInner   = "volc-inner"
+	VolcOuter   = "volc-outer"
 	Mock        = "mock"
 	Vidu        = "vidu"
 	TokenMarket = "tokenmarket"

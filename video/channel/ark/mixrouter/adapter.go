@@ -17,7 +17,7 @@ const BaseUrl = "https://api.mixroute.ai"
 type Adapter struct{}
 
 func (a *Adapter) Name() string {
-	return "mixrouter"
+	return common.MixRouter
 }
 
 func (a *Adapter) CreateTask(ctx context.Context, req dto.ArkCreateTaskRequest) (*dto.ArkCreateTaskResponse, error) {

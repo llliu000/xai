@@ -17,7 +17,7 @@ const BaseUrl = "https://model.service-inference.ai"
 type Adapter struct{}
 
 func (a *Adapter) Name() string {
-	return "tokenmarket"
+	return common.TokenMarket
 }
 
 func (a *Adapter) CreateTask(ctx context.Context, req dto.ArkCreateTaskRequest) (*dto.ArkCreateTaskResponse, error) {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/QuantumNous/new-api/video/common"
 	"github.com/QuantumNous/new-api/video/dto"
 	"github.com/google/uuid"
 )
@@ -12,7 +13,7 @@ import (
 type Adapter struct{}
 
 func (a *Adapter) Name() string {
-	return "mock"
+	return common.Mock
 }
 
 func (a *Adapter) CreateTask(ctx context.Context, req dto.ArkCreateTaskRequest) (*dto.ArkCreateTaskResponse, error) {
