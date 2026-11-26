@@ -1,7 +1,7 @@
 package dto
 
 type BaseAssetRequest struct {
-	ProjectName *string `json:"ProjectName" binding:"omitempty"`
+	ProjectName string `json:"ProjectName,omitempty" binding:"omitempty"`
 }
 
 type CreateAssetGroupRequest struct {
@@ -17,7 +17,7 @@ type CreateAssetRequest struct {
 	GroupId    string           `json:"GroupId" binding:"required"`
 	URL        string           `json:"URL" binding:"required"`
 	Name       string           `json:"Name" binding:"required"`
-	Moderation *AssetModeration `json:"Moderation" binding:"omitempty"`
+	Moderation *AssetModeration `json:"Moderation,omitempty" binding:"omitempty"`
 }
 
 type AssetModeration struct {
