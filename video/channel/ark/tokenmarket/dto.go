@@ -17,3 +17,8 @@ type ResultResponse struct {
 		Metadata map[string]any `json:"metadata"`
 	} `json:"task"`
 }
+
+type BaseAssetResponse[T any] struct {
+	Success bool `json:"success"`
+	Data    T    `json:"data"`
+}

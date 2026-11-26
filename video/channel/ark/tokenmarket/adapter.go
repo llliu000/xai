@@ -62,11 +62,21 @@ func (a *Adapter) CreateAssetGroup(ctx context.Context, req *dto.CreateAssetGrou
 }
 
 func (a *Adapter) CreateAssets(ctx context.Context, req *dto.CreateAssetRequest) (*dto.CreateAssetResponse, error) {
-	return &dto.CreateAssetResponse{Id: req.URL}, nil
+	url := fmt.Sprintf("%s/v2/sd-max/assets", BaseUrl)
+	var response BaseAssetResponse[dto.CreateAssetResponse]
+	apiKey := common.GetRelayContext(ctx).ApiKey
+	httpClient := utils.NewHttpClient(url, apiKey)
+	err := httpClient.Post(ctx, req, &response)
+	return &response.Data, err
 }
 
 func (a *Adapter) GetAsset(ctx context.Context, req *dto.GetAssetRequest) (*dto.GetAssetResponse, error) {
-	return &dto.GetAssetResponse{Status: "Active"}, nil
+	url := fmt.Sprintf("%s/v2/sd-max/assets/%s", BaseUrl, req.Id)
+	var response BaseAssetResponse[dto.GetAssetResponse]
+	apiKey := common.GetRelayContext(ctx).ApiKey
+	httpClient := utils.NewHttpClient(url, apiKey)
+	err := httpClient.Get(ctx, &response)
+	return &response.Data, err
 }
 
 func (a *Adapter) ListAssets(ctx context.Context, req *dto.ListAssetsRequest) (*dto.ListAssetsResponse, error) {

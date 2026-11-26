@@ -129,7 +129,7 @@ func (a *Adapter) GetVisualValidateResult(ctx context.Context, req *dto.GetVisua
 }
 
 func (a *Adapter) doCall(ctx context.Context, action string, request, response any) error {
-	url := fmt.Sprintf("%s?Action=%s&Version=2024-01-01", BaseUrl, action)
+	url := fmt.Sprintf("%s/asset?Action=%s&Version=2024-01-01", BaseUrl, action)
 	apiKey := common.GetRelayContext(ctx).ApiKey
 	httpClient := utils.NewHttpClient(url, apiKey)
 	return httpClient.Post(ctx, request, response)
