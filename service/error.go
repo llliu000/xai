@@ -207,6 +207,9 @@ func TaskErrorWrapper(err error, code string, statusCode int, upstreamURLs ...st
 		//text = "请求上游地址失败"
 		text = common.MaskSensitiveInfo(text, upstreamURLs...)
 	}
+	if strings.Contains(lowerText, "not active") {
+		statusCode = http.StatusBadRequest
+	}
 	//避免暴露内部错误
 	taskError := &taskdto.TaskError{
 		Code:       code,
