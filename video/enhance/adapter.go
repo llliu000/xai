@@ -17,12 +17,8 @@ var TargetResolutionMapping = map[string]dto.ResolutionRatio{
 		Ratio:  2.5,
 	},
 	"1080p": {
-		Origin: "480p",
+		Origin: "720p",
 		Ratio:  5,
-	},
-	"4k": {
-		Origin: "1080p",
-		Ratio:  10,
 	},
 }
 
