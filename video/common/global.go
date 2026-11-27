@@ -12,12 +12,12 @@ const (
 )
 
 const (
-	VolcInner   = "volc-inner"
-	VolcOuter   = "volc-outer"
-	Mock        = "mock"
-	Vidu        = "vidu"
-	TokenMarket = "tokenmarket"
-	MixRouter   = "mixrouter"
+	VolcInner = "volc-inner"
+	VolcOuter = "volc-outer"
+	Mock      = "mock"
+	Vidu      = "vidu"
+	TokenMart = "tokenmart"
+	MixRouter = "mixrouter"
 )
 
 type RelayContext struct {

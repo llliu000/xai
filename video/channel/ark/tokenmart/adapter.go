@@ -1,4 +1,4 @@
-package tokenmarket
+package tokenmart
 
 import (
 	"context"
@@ -17,7 +17,7 @@ const BaseUrl = "https://model.service-inference.ai"
 type Adapter struct{}
 
 func (a *Adapter) Name() string {
-	return common.TokenMarket
+	return common.TokenMart
 }
 
 func (a *Adapter) CreateTask(ctx context.Context, req dto.ArkCreateTaskRequest) (*dto.ArkCreateTaskResponse, error) {

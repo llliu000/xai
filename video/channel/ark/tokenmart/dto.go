@@ -1,4 +1,4 @@
-package tokenmarket
+package tokenmart
 
 type ResultResponse struct {
 	Task struct {
