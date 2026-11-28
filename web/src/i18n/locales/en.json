@@ -4606,6 +4606,7 @@
     "OpenAI only": "OpenAI only",
     "OpenAI Organization": "OpenAI Organization",
     "OpenAI Organization ID (optional)": "OpenAI Organization ID (optional)",
+    "OpenAI Responses to Anthropic Messages": "OpenAI Responses to Anthropic Messages",
     "OpenAI Responses to Gemini Generate Content": "OpenAI Responses to Gemini Generate Content",
     "OpenAI Responses to OpenAI Chat": "OpenAI Responses to OpenAI Chat",
     "OpenAI, Anthropic, etc.": "OpenAI, Anthropic, etc.",
@@ -7824,7 +7825,6 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom",
     "Asset library": "Asset library",
     "Asset library type": "Asset library type",
     "Select asset library type": "Select asset library type",
@@ -7855,6 +7855,9 @@
     "Asset synchronization finished with failures": "Asset synchronization finished with failures",
     "Asset synchronization completed": "Asset synchronization completed",
     "Processing": "Processing",
-    "Pending upload": "Pending upload"
+    "Pending upload": "Pending upload",
+    "Zoom": "Zoom",
+    "Plugin routes": "Plugin routes",
+    "{{on}} of {{total}} on": "{{on}} of {{total}} on"
   }
 }
