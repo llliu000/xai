@@ -4599,6 +4599,7 @@
     "OpenAI only": "Chỉ OpenAI",
     "OpenAI Organization": "Tổ chức OpenAI",
     "OpenAI Organization ID (optional)": "ID Tổ chức OpenAI (tùy chọn)",
+    "OpenAI Responses to Anthropic Messages": "OpenAI Responses sang Anthropic Messages",
     "OpenAI Responses to Gemini Generate Content": "OpenAI Responses sang Gemini Generate Content",
     "OpenAI Responses to OpenAI Chat": "OpenAI Responses sang OpenAI Chat",
     "OpenAI, Anthropic, etc.": "OpenAI, Anthropic, v.v.",
@@ -7817,7 +7818,6 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom",
     "Asset library": "Thư viện tài nguyên",
     "Asset library type": "Loại thư viện tài nguyên",
     "Select asset library type": "Chọn loại thư viện tài nguyên",
@@ -7848,6 +7848,9 @@
     "Asset synchronization finished with failures": "Đồng bộ tài nguyên đã kết thúc, một số tài nguyên thất bại",
     "Asset synchronization completed": "Đồng bộ tài nguyên hoàn tất",
     "Processing": "Đang xử lý",
-    "Pending upload": "Chờ tải lên"
+    "Pending upload": "Chờ tải lên",
+    "Zoom": "Zoom",
+    "Plugin routes": "Tuyến của plugin",
+    "{{on}} of {{total}} on": "Đã bật {{on}}/{{total}}"
   }
 }

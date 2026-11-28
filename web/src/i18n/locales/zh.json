@@ -4599,6 +4599,7 @@
     "OpenAI only": "仅 OpenAI",
     "OpenAI Organization": "OpenAI 组织",
     "OpenAI Organization ID (optional)": "OpenAI 组织 ID（可选）",
+    "OpenAI Responses to Anthropic Messages": "OpenAI Responses 转 Anthropic Messages",
     "OpenAI Responses to Gemini Generate Content": "OpenAI Responses 转 Gemini Generate Content",
     "OpenAI Responses to OpenAI Chat": "OpenAI Responses 到 OpenAI Chat",
     "OpenAI, Anthropic, etc.": "OpenAI、Anthropic 等",
@@ -7817,7 +7818,6 @@
     "Zhipu": "智谱",
     "Zhipu GLM": "智谱GLM",
     "Zhipu V4": "智谱 V4",
-    "Zoom": "缩放",
     "Asset library": "素材库",
     "Asset library type": "素材库类型",
     "Select asset library type": "选择素材库类型",
@@ -7849,5 +7849,8 @@
     "Asset synchronization completed": "素材同步完成",
     "Processing": "处理中",
     "Pending upload": "待上传",
+    "Zoom": "缩放",
+    "Plugin routes": "插件路由",
+    "{{on}} of {{total}} on": "已开启 {{on}}/{{total}}"
   }
 }
